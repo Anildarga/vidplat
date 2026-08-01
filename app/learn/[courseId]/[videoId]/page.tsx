@@ -5,8 +5,10 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { formatDuration } from '@/lib/utils';
-import { getYouTubeEmbedUrl, isYouTubeUrl } from '@/lib/video-utils';
+import { getYouTubeEmbedUrl, isYouTubeUrl, isCloudinaryUrl, getOptimizedCloudinaryUrl } from '@/lib/video-utils';
 import { Video, Course } from '@prisma/client';
+import NotesSidebar from '@/components/notes/NotesSidebar';
+import DiscussionSidebar from '@/components/discussions/DiscussionSidebar';
 
 interface VideoWithProgress extends Video {
   progress?: {
@@ -38,6 +40,8 @@ export default function VideoPlayerPage() {
   const [showResumeToast, setShowResumeToast] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [showNotesSidebar, setShowNotesSidebar] = useState(false);
+  const [activeSidebarTab, setActiveSidebarTab] = useState<'notes' | 'discussions'>('notes');
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -361,8 +365,8 @@ export default function VideoPlayerPage() {
       // Show success message
       alert('Congratulations! You have completed all videos. You can now take the quiz.');
       
-      // Redirect to specific course page as requested
-      router.push(`/learn/69d7b6697c44e1862620da7f`);
+      // Redirect to the course learning page
+      router.push(`/learn/${courseId}`);
     } catch (error) {
       console.error('Failed to save final progress:', error);
       alert('Failed to save progress. Please try again.');
@@ -378,7 +382,22 @@ export default function VideoPlayerPage() {
     return video.url;
   };
 
+  const getVideoUrl = (): string => {
+    if (!video) return '';
+    // Optimize Cloudinary URLs for better streaming
+    if (isCloudinaryUrl(video.url)) {
+      return getOptimizedCloudinaryUrl(video.url, {
+        width: 1280,
+        height: 720,
+        quality: 'auto',
+        format: 'mp4'
+      });
+    }
+    return video.url;
+  };
+
   const isYouTube = video ? isYouTubeUrl(video.url) : false;
+  const videoUrl = video ? getVideoUrl() : '';
 
   if (loading) {
     return (
@@ -441,9 +460,9 @@ export default function VideoPlayerPage() {
 
       {/* Video Player */}
       <div className="max-w-7xl mx-auto px-4 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="flex flex-col lg:flex-row gap-6">
           {/* Main Video Area */}
-          <div className="lg:col-span-2">
+          <div className="lg:w-2/3">
             <div className="bg-black rounded-lg overflow-hidden shadow-lg">
               {isYouTube ? (
                 <iframe
@@ -457,7 +476,7 @@ export default function VideoPlayerPage() {
               ) : (
                 <video
                   ref={videoRef}
-                  src={video.url}
+                  src={videoUrl}
                   className="w-full aspect-video"
                   controls
                   autoPlay
@@ -465,7 +484,11 @@ export default function VideoPlayerPage() {
                   onPlay={handlePlay}
                   onPause={handlePause}
                   onEnded={handleVideoEnd}
-                />
+                  poster={video.thumbnail || undefined}
+                >
+                  <source src={videoUrl} type="video/mp4" />
+                  Your browser does not support the video tag.
+                </video>
               )}
             </div>
 
@@ -568,25 +591,86 @@ export default function VideoPlayerPage() {
                     All Videos Completed!
                   </h3>
                   <p className="text-gray-700 dark:text-gray-300 mb-4">
-                    You have completed all videos in this course. You can now take the quiz to test your knowledge.
+                    You have completed all videos in this course. Return to the course learning page.
                   </p>
                   <button
-                    onClick={() => router.push(`/student/courses/${courseId}/quizzes/take`)}
+                    onClick={() => router.push(`/learn/${courseId}`)}
                     className="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
                   >
-                    Take Quiz Now
+                    Return to Course
                   </button>
                 </div>
               )}
             </div>
           </div>
 
-          {/* Sidebar - Video List */}
-          <div className="lg:col-span-1">
+          {/* Sidebars */}
+          <div className="lg:w-1/3 flex flex-col gap-6">
+            {/* Notes & Discussions Sidebar */}
+            {showNotesSidebar && (
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden">
+                <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() => setActiveSidebarTab('notes')}
+                      className={`px-3 py-1 rounded-lg font-medium transition-colors ${activeSidebarTab === 'notes' ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                    >
+                      Notes
+                    </button>
+                    <button
+                      onClick={() => setActiveSidebarTab('discussions')}
+                      className={`px-3 py-1 rounded-lg font-medium transition-colors ${activeSidebarTab === 'discussions' ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                    >
+                      Discussions
+                    </button>
+                  </div>
+                  <button
+                    onClick={() => setShowNotesSidebar(false)}
+                    className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+                <div className="h-96 overflow-y-auto">
+                  {activeSidebarTab === 'notes' ? (
+                    <NotesSidebar
+                      videoId={videoId}
+                      currentTime={currentTime}
+                      onAddNote={(timestamp, content) => {
+                        console.log('Note added:', { timestamp, content });
+                      }}
+                      onEditNote={(noteId, content) => {
+                        console.log('Note edited:', { noteId, content });
+                      }}
+                      onDeleteNote={(noteId) => {
+                        console.log('Note deleted:', noteId);
+                      }}
+                    />
+                  ) : (
+                    <DiscussionSidebar videoId={videoId} />
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Video List Sidebar */}
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 sticky top-4 max-h-[calc(100vh-2rem)] overflow-y-auto">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                Course Videos
-              </h3>
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Course Videos
+                </h3>
+                <button
+                  onClick={() => setShowNotesSidebar(!showNotesSidebar)}
+                  className="text-sm bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded flex items-center gap-1"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  {showNotesSidebar ? 'Hide Sidebar' : 'Show Sidebar'}
+                </button>
+              </div>
               <ul className="space-y-2">
                 {videos.map((v, index) => {
                   const progress = videosProgress[v.id];

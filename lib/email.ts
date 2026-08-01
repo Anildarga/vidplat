@@ -160,7 +160,7 @@ function getEmailHtml(resetUrl: string): string {
       </a>
       <p style="color: #666; font-size: 14px;">Or copy and paste this link in your browser:</p>
       <p style="color: #666; font-size: 12px; word-break: break-all;">${resetUrl}</p>
-      <p style="color: #666; font-size: 14px;">This link expires in 24 hours.</p>
+      <p style="color: #666; font-size: 14px;">This link expires in 1 hour.</p>
       <p style="color: #666; font-size: 14px;">If you didn't request this, please ignore this email.</p>
       <hr style="margin: 30px 0; border: none; border-top: 1px solid #e5e7eb;" />
       <p style="color: #999; font-size: 12px; text-align: center;">© 2024 Eduplat. All rights reserved.</p>

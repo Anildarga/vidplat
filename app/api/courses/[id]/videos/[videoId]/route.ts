@@ -76,7 +76,7 @@ export async function PATCH(
       );
     }
 
-    const { title, description, url, thumbnail, duration, order } = await req.json();
+    const { title, description, url, thumbnail, duration, order, unlockType, unlockDays, unlockDate } = await req.json();
 
     const updateData: Record<string, unknown> = {};
 
@@ -114,6 +114,53 @@ export async function PATCH(
 
     if (order !== undefined) {
       updateData.order = Number(order);
+    }
+
+    // Handle unlockType
+    if (unlockType !== undefined) {
+      const validUnlockTypes = ['IMMEDIATE', 'DAYS_AFTER_ENROLLMENT', 'SPECIFIC_DATE'];
+      if (validUnlockTypes.includes(unlockType)) {
+        updateData.unlockType = unlockType;
+      } else {
+        return NextResponse.json(
+          { success: false, error: 'Invalid unlockType' },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Handle unlockDays
+    if (unlockDays !== undefined) {
+      if (unlockDays === null) {
+        updateData.unlockDays = null;
+      } else {
+        const days = Number(unlockDays);
+        if (!isNaN(days) && days >= 0) {
+          updateData.unlockDays = days;
+        } else {
+          return NextResponse.json(
+            { success: false, error: 'unlockDays must be a non-negative number' },
+            { status: 400 }
+          );
+        }
+      }
+    }
+
+    // Handle unlockDate
+    if (unlockDate !== undefined) {
+      if (unlockDate === null) {
+        updateData.unlockDate = null;
+      } else {
+        const date = new Date(unlockDate);
+        if (!isNaN(date.getTime())) {
+          updateData.unlockDate = date;
+        } else {
+          return NextResponse.json(
+            { success: false, error: 'Invalid unlockDate' },
+            { status: 400 }
+          );
+        }
+      }
     }
 
     const video = await prisma.video.update({

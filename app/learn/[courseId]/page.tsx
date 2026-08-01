@@ -46,6 +46,18 @@ export default async function LearnPage({ params }: PageProps) {
         orderBy: {
           order: 'asc',
         },
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          url: true,
+          thumbnail: true,
+          duration: true,
+          order: true,
+          unlockType: true,
+          unlockDays: true,
+          unlockDate: true,
+        },
       },
     },
   });
@@ -54,27 +66,64 @@ export default async function LearnPage({ params }: PageProps) {
     notFound();
   }
 
+  // Fetch enrollment (if any)
+  const enrollment = await prisma.enrollment.findUnique({
+    where: {
+      userId_courseId: {
+        userId: session.user.id,
+        courseId: courseId,
+      },
+    },
+  });
+
   // Check enrollment or admin/instructor access
   const isAdmin = session.user.role === 'ADMIN';
   const isInstructor = session.user.role === 'INSTRUCTOR' || isAdmin;
   const isOwner = course.instructorId === session.user.id;
-  const canAccess = isAdmin || isInstructor || isOwner;
+  const canAccess = isAdmin || isInstructor || isOwner || enrollment;
 
   if (!canAccess) {
-    // Check if enrolled
-    const enrollment = await prisma.enrollment.findUnique({
-      where: {
-        userId_courseId: {
-          userId: session.user.id,
-          courseId: courseId,
-        },
-      },
-    });
-
-    if (!enrollment) {
-      redirect(`/courses/${courseId}?message=Please enroll to access this course`);
-    }
+    redirect(`/courses/${courseId}?message=Please enroll to access this course`);
   }
+
+  // Compute unlocked status for each video
+  const now = new Date();
+  const videosWithUnlockStatus = course.videos.map(video => {
+    let isUnlocked = false;
+    // Instructors/admins can access all videos
+    if (isInstructor || isAdmin) {
+      isUnlocked = true;
+    } else {
+      switch (video.unlockType) {
+        case 'IMMEDIATE':
+          isUnlocked = true;
+          break;
+        case 'DAYS_AFTER_ENROLLMENT':
+          if (enrollment && video.unlockDays !== null) {
+            const unlockDate = new Date(enrollment.enrolledAt);
+            unlockDate.setDate(unlockDate.getDate() + video.unlockDays);
+            isUnlocked = now >= unlockDate;
+          } else {
+            isUnlocked = false;
+          }
+          break;
+        case 'SPECIFIC_DATE':
+          if (video.unlockDate) {
+            isUnlocked = now >= new Date(video.unlockDate);
+          } else {
+            isUnlocked = false;
+          }
+          break;
+        default:
+          // Default to immediate if unknown
+          isUnlocked = true;
+      }
+    }
+    return {
+      ...video,
+      isUnlocked,
+    };
+  });
 
   // Fetch progress data
   const progress = await calculateCourseProgress(session.user.id, courseId);
@@ -241,11 +290,19 @@ export default async function LearnPage({ params }: PageProps) {
     }
   }
 
-  // Find first uncompleted video
-  const firstUncompletedVideo = progress.videosProgress.find(
-    (vp) => !vp.completed
+  // Find first uncompleted AND unlocked video
+  const firstUncompletedUnlockedVideo = videosWithUnlockStatus.find(
+    (video) => {
+      const videoProgress = progress.videosProgress.find(
+        (vp) => vp.videoId === video.id
+      );
+      return !videoProgress?.completed && video.isUnlocked;
+    }
   );
-  const startVideoId = firstUncompletedVideo?.videoId || course.videos[0]?.id;
+  // If no uncompleted unlocked video, find first unlocked video
+  const startVideoId = firstUncompletedUnlockedVideo?.id ||
+                      videosWithUnlockStatus.find(v => v.isUnlocked)?.id ||
+                      course.videos[0]?.id;
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
@@ -285,56 +342,89 @@ export default async function LearnPage({ params }: PageProps) {
 
             {/* Video List */}
             <ul className="space-y-2">
-              {course.videos.map((video, index) => {
+              {videosWithUnlockStatus.map((video, index) => {
                 const videoProgress = progress.videosProgress.find(
                   (vp) => vp.videoId === video.id
                 );
                 const isCompleted = videoProgress?.completed ?? false;
                 const isStartVideo = startVideoId === video.id;
+                const isUnlocked = video.isUnlocked;
 
                 return (
                   <li key={video.id}>
-                    <Link
-                      href={`/learn/${courseId}/${video.id}`}
-                      className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${
-                        isStartVideo
-                          ? 'bg-blue-50 dark:bg-blue-900/30 border-2 border-blue-500'
-                          : 'hover:bg-gray-50 dark:hover:bg-gray-700'
-                      }`}
-                    >
-                      <span className="text-gray-500 dark:text-gray-400 font-mono w-6 text-center">
-                        {index + 1}
-                      </span>
+                    {isUnlocked ? (
+                      <Link
+                        href={`/learn/${courseId}/${video.id}`}
+                        className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${
+                          isStartVideo
+                            ? 'bg-blue-50 dark:bg-blue-900/30 border-2 border-blue-500'
+                            : 'hover:bg-gray-50 dark:hover:bg-gray-700'
+                        }`}
+                      >
+                        <span className="text-gray-500 dark:text-gray-400 font-mono w-6 text-center">
+                          {index + 1}
+                        </span>
 
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                          {video.title}
-                        </p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          {formatDuration(video.duration ?? 0)}
-                        </p>
-                      </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                            {video.title}
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            {formatDuration(video.duration ?? 0)}
+                          </p>
+                        </div>
 
-                      {isCompleted && (
+                        {isCompleted && (
+                          <svg
+                            className="w-5 h-5 text-green-500 flex-shrink-0"
+                            fill="currentColor"
+                            viewBox="0 0 20 20"
+                          >
+                            <path
+                              fillRule="evenodd"
+                              d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                              clipRule="evenodd"
+                            />
+                          </svg>
+                        )}
+
+                        {isStartVideo && !isCompleted && (
+                          <span className="text-xs font-semibold text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/50 px-2 py-1 rounded">
+                            Start
+                          </span>
+                        )}
+                      </Link>
+                    ) : (
+                      <div
+                        className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 cursor-not-allowed"
+                        title="This video is locked and will be available later"
+                      >
+                        <span className="text-gray-400 dark:text-gray-500 font-mono w-6 text-center">
+                          {index + 1}
+                        </span>
+
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
+                            {video.title}
+                          </p>
+                          <p className="text-xs text-gray-400 dark:text-gray-500">
+                            {formatDuration(video.duration ?? 0)}
+                          </p>
+                        </div>
+
                         <svg
-                          className="w-5 h-5 text-green-500 flex-shrink-0"
+                          className="w-5 h-5 text-gray-400 dark:text-gray-500 flex-shrink-0"
                           fill="currentColor"
                           viewBox="0 0 20 20"
                         >
                           <path
                             fillRule="evenodd"
-                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                            d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
                             clipRule="evenodd"
                           />
                         </svg>
-                      )}
-
-                      {isStartVideo && !isCompleted && (
-                        <span className="text-xs font-semibold text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/50 px-2 py-1 rounded">
-                          Start
-                        </span>
-                      )}
-                    </Link>
+                      </div>
+                    )}
                   </li>
                 );
               })}
@@ -356,7 +446,9 @@ export default async function LearnPage({ params }: PageProps) {
             <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400 mb-6">
               <span>Instructor: {course.instructor.name || 'Unknown'}</span>
               <span>•</span>
-              <span>{course.videos.length} videos</span>
+              <span>
+                {videosWithUnlockStatus.filter(v => v.isUnlocked).length} of {course.videos.length} videos unlocked
+              </span>
             </div>
 
             {/* Course Progress */}

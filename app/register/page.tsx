@@ -22,6 +22,8 @@ function RegisterForm() {
   const [role, setRole] = useState<'STUDENT' | 'INSTRUCTOR'>(defaultRole as any)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [acceptedTerms, setAcceptedTerms] = useState(false)
+  const [acceptedPrivacy, setAcceptedPrivacy] = useState(false)
 
   useEffect(() => {
     if (roleParam && ['STUDENT', 'INSTRUCTOR'].includes(roleParam)) {
@@ -41,6 +43,11 @@ function RegisterForm() {
     e.preventDefault()
     setError(null)
 
+    if (!acceptedTerms || !acceptedPrivacy) {
+      setError('You must accept the Terms of Service and Privacy Policy to register')
+      return
+    }
+
     if (password !== confirmPassword) {
       setError('Passwords do not match')
       return
@@ -57,7 +64,7 @@ function RegisterForm() {
       const res = await fetch(`${baseUrl}/api/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password, role }),
+        body: JSON.stringify({ name, email, password, role, acceptedTerms, acceptedPrivacy }),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -174,12 +181,46 @@ function RegisterForm() {
               </div>
             </div>
           </div>
-
+    
+          {/* Terms and Privacy Checkboxes */}
+          <div className="space-y-3">
+            <label className="flex items-start">
+              <input
+                type="checkbox"
+                checked={acceptedTerms}
+                onChange={(e) => setAcceptedTerms(e.target.checked)}
+                className="h-4 w-4 mt-1 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded"
+                required
+              />
+              <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                I agree to the{' '}
+                <a href="/terms" target="_blank" className="text-blue-600 dark:text-blue-400 hover:underline">
+                  Terms of Service
+                </a>
+              </span>
+            </label>
+            <label className="flex items-start">
+              <input
+                type="checkbox"
+                checked={acceptedPrivacy}
+                onChange={(e) => setAcceptedPrivacy(e.target.checked)}
+                className="h-4 w-4 mt-1 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded"
+                required
+              />
+              <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                I agree to the{' '}
+                <a href="/privacy" target="_blank" className="text-blue-600 dark:text-blue-400 hover:underline">
+                  Privacy Policy
+                </a>
+              </span>
+            </label>
+          </div>
+    
           <div>
             <button
               type="submit"
-              disabled={loading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+              disabled={loading || !acceptedTerms || !acceptedPrivacy}
+              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Creating account...' : 'Sign up'}
             </button>

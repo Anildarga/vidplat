@@ -10,7 +10,11 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
+    const session = await getServerSession(authOptions);
+    const userId = session?.user?.id;
+    const userRole = session?.user?.role;
 
+    // Fetch all videos for the course
     const videos = await prisma.video.findMany({
       where: { courseId: id },
       orderBy: {
@@ -18,7 +22,73 @@ export async function GET(
       },
     });
 
-    return NextResponse.json({ success: true, data: videos });
+    // If user is instructor or admin, return all videos with isUnlocked = true
+    const isInstructorOrAdmin = userRole === 'INSTRUCTOR' || userRole === 'ADMIN';
+
+    // Determine enrollment for the user in this course
+    let enrollment = null;
+    if (userId && !isInstructorOrAdmin) {
+      enrollment = await prisma.enrollment.findUnique({
+        where: {
+          userId_courseId: {
+            userId,
+            courseId: id,
+          },
+        },
+      });
+    }
+
+    const now = new Date();
+    const enrichedVideos = videos.map(video => {
+      let isUnlocked = false;
+      let unlockReason = '';
+
+      // If instructor/admin, everything is unlocked
+      if (isInstructorOrAdmin) {
+        isUnlocked = true;
+        unlockReason = 'instructor';
+      } else {
+        switch (video.unlockType) {
+          case 'IMMEDIATE':
+            isUnlocked = true;
+            unlockReason = 'immediate';
+            break;
+          case 'DAYS_AFTER_ENROLLMENT':
+            if (enrollment && video.unlockDays !== null) {
+              const unlockDate = new Date(enrollment.enrolledAt);
+              unlockDate.setDate(unlockDate.getDate() + video.unlockDays);
+              isUnlocked = now >= unlockDate;
+              unlockReason = isUnlocked ? 'days_after_enrollment_passed' : 'days_after_enrollment_pending';
+            } else {
+              isUnlocked = false;
+              unlockReason = 'not_enrolled_or_no_days';
+            }
+            break;
+          case 'SPECIFIC_DATE':
+            if (video.unlockDate) {
+              isUnlocked = now >= new Date(video.unlockDate);
+              unlockReason = isUnlocked ? 'specific_date_passed' : 'specific_date_pending';
+            } else {
+              // No date set, treat as unlocked? Default to locked for safety.
+              isUnlocked = false;
+              unlockReason = 'no_date_set';
+            }
+            break;
+          default:
+            // Default to immediate if unknown
+            isUnlocked = true;
+            unlockReason = 'default';
+        }
+      }
+
+      return {
+        ...video,
+        isUnlocked,
+        unlockReason,
+      };
+    });
+
+    return NextResponse.json({ success: true, data: enrichedVideos });
   } catch (error) {
     console.error('[courses/[id]/videos GET]', error instanceof Error ? error.message : error);
     return NextResponse.json(
@@ -51,7 +121,7 @@ export async function POST(
     }
 
     const { id: courseId } = await params;
-    const { title, description, url, thumbnail, duration } = await req.json();
+    const { title, description, url, thumbnail, duration, unlockType, unlockDays, unlockDate } = await req.json();
 
     // Validate required fields
     if (!title || typeof title !== 'string' || title.trim() === '') {
@@ -96,6 +166,28 @@ export async function POST(
       where: { courseId },
     });
 
+    // Validate unlockType
+    const validUnlockTypes = ['IMMEDIATE', 'DAYS_AFTER_ENROLLMENT', 'SPECIFIC_DATE'];
+    const finalUnlockType = unlockType && validUnlockTypes.includes(unlockType) ? unlockType : 'IMMEDIATE';
+    
+    // Validate unlockDays
+    let finalUnlockDays = null;
+    if (unlockDays !== undefined && unlockDays !== null) {
+      const days = Number(unlockDays);
+      if (!isNaN(days) && days >= 0) {
+        finalUnlockDays = days;
+      }
+    }
+    
+    // Validate unlockDate
+    let finalUnlockDate = null;
+    if (unlockDate) {
+      const date = new Date(unlockDate);
+      if (!isNaN(date.getTime())) {
+        finalUnlockDate = date;
+      }
+    }
+
     const video = await prisma.video.create({
       data: {
         title: title.trim(),
@@ -105,6 +197,9 @@ export async function POST(
         duration: duration ? Number(duration) : null,
         order: videoCount + 1,
         courseId,
+        unlockType: finalUnlockType,
+        unlockDays: finalUnlockDays,
+        unlockDate: finalUnlockDate,
       },
     });
 

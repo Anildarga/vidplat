@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { generateResetToken, getTokenExpirationTime } from '@/lib/password-utils';
+import { createPasswordResetToken } from '@/lib/tokens';
 import { sendPasswordResetEmail } from '@/lib/email';
 
 /**
@@ -56,26 +56,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Generate reset token
-    const token = generateResetToken();
-    const expiresAt = getTokenExpirationTime();
-
-    // Save token to database
-    await prisma.passwordResetToken.create({
-      data: {
-        email: normalizedEmail,
-        token,
-        expires: expiresAt,
-      },
-    });
+    // Generate and save reset token using the tokens library
+    const token = await createPasswordResetToken(normalizedEmail);
 
     // Send email
     const emailResult = await sendPasswordResetEmail(normalizedEmail, token);
 
     if (!emailResult.success) {
       // Clean up token if email failed
-      await prisma.passwordResetToken.delete({
-        where: { token },
+      await prisma.passwordResetToken.deleteMany({
+        where: { email: normalizedEmail },
       }).catch(() => {});
 
       return NextResponse.json(

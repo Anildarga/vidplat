@@ -14,6 +14,9 @@ interface VideoData {
   thumbnail: string | null;
   duration: number | null;
   order: number;
+  unlockType: 'IMMEDIATE' | 'DAYS_AFTER_ENROLLMENT' | 'SPECIFIC_DATE';
+  unlockDays: number | null;
+  unlockDate: string | null;
 }
 
 export default function EditVideoPage() {
@@ -23,6 +26,8 @@ export default function EditVideoPage() {
   const courseId = params.id as string;
   const videoId = params.videoId as string;
   const videoFileInputRef = useRef<HTMLInputElement>(null);
+  const videoObjectUrlRef = useRef<string | null>(null);
+  const thumbnailObjectUrlRef = useRef<string | null>(null);
 
   const [video, setVideo] = useState<VideoData | null>(null);
   const [title, setTitle] = useState('');
@@ -33,6 +38,9 @@ export default function EditVideoPage() {
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
   const [thumbnailUrl, setThumbnailUrl] = useState<string>('');
   const [duration, setDuration] = useState('');
+  const [unlockType, setUnlockType] = useState<'IMMEDIATE' | 'DAYS_AFTER_ENROLLMENT' | 'SPECIFIC_DATE'>('IMMEDIATE');
+  const [unlockDays, setUnlockDays] = useState<string>('');
+  const [unlockDate, setUnlockDate] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -77,6 +85,9 @@ export default function EditVideoPage() {
         setUrl(data.data.url);
         setThumbnailUrl(data.data.thumbnail || '');
         setDuration(data.data.duration ? String(data.data.duration) : '');
+        setUnlockType(data.data.unlockType || 'IMMEDIATE');
+        setUnlockDays(data.data.unlockDays ? String(data.data.unlockDays) : '');
+        setUnlockDate(data.data.unlockDate ? new Date(data.data.unlockDate).toISOString().slice(0, 16) : '');
         setVideoPreviewUrl(data.data.url);
         setThumbnailPreviewUrl(data.data.thumbnail || null);
       } catch (err: any) {
@@ -89,6 +100,18 @@ export default function EditVideoPage() {
     fetchVideo();
   }, [videoId, courseId]);
 
+  // Cleanup object URLs on unmount
+  useEffect(() => {
+    return () => {
+      if (videoObjectUrlRef.current) {
+        URL.revokeObjectURL(videoObjectUrlRef.current);
+      }
+      if (thumbnailObjectUrlRef.current) {
+        URL.revokeObjectURL(thumbnailObjectUrlRef.current);
+      }
+    };
+  }, []);
+
   // Video file selection handler
   const handleVideoFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || null;
@@ -97,10 +120,20 @@ export default function EditVideoPage() {
     if (file) {
       // Clear URL field when file is selected
       setUrl('');
+      // Revoke previous object URL if exists
+      if (videoObjectUrlRef.current) {
+        URL.revokeObjectURL(videoObjectUrlRef.current);
+      }
       // Create preview URL for the video file
       const url = URL.createObjectURL(file);
+      videoObjectUrlRef.current = url;
       setVideoPreviewUrl(url);
     } else {
+      // If no file, revoke any existing object URL
+      if (videoObjectUrlRef.current) {
+        URL.revokeObjectURL(videoObjectUrlRef.current);
+        videoObjectUrlRef.current = null;
+      }
       setVideoPreviewUrl(video?.url || null);
     }
   };
@@ -115,14 +148,24 @@ export default function EditVideoPage() {
       if (videoFileInputRef.current) {
         videoFileInputRef.current.value = '';
       }
+      // Revoke any existing video object URL
+      if (videoObjectUrlRef.current) {
+        URL.revokeObjectURL(videoObjectUrlRef.current);
+        videoObjectUrlRef.current = null;
+      }
       // Show preview for YouTube links or direct video URLs
-      if (urlValue.includes('youtube.com') || urlValue.includes('youtu.be')) {
-        const embedUrl = `https://www.youtube.com/embed/${urlValue.split('v=')[1]?.split('&')[0] || ''}`;
+      const embedUrl = getYouTubeEmbedUrl(urlValue);
+      if (embedUrl) {
         setVideoPreviewUrl(embedUrl);
       } else {
         setVideoPreviewUrl(urlValue);
       }
     } else {
+      // If URL is cleared, revoke any object URL and revert to original video URL
+      if (videoObjectUrlRef.current) {
+        URL.revokeObjectURL(videoObjectUrlRef.current);
+        videoObjectUrlRef.current = null;
+      }
       setVideoPreviewUrl(video?.url || null);
     }
   };
@@ -133,10 +176,20 @@ export default function EditVideoPage() {
     setThumbnailFile(file);
 
     if (file) {
+      // Revoke previous object URL if exists
+      if (thumbnailObjectUrlRef.current) {
+        URL.revokeObjectURL(thumbnailObjectUrlRef.current);
+      }
       const url = URL.createObjectURL(file);
+      thumbnailObjectUrlRef.current = url;
       setThumbnailPreviewUrl(url);
       setThumbnailUrl('');
     } else {
+      // If no file, revoke any existing object URL
+      if (thumbnailObjectUrlRef.current) {
+        URL.revokeObjectURL(thumbnailObjectUrlRef.current);
+        thumbnailObjectUrlRef.current = null;
+      }
       setThumbnailPreviewUrl(thumbnailUrl || null);
     }
   };
@@ -146,9 +199,19 @@ export default function EditVideoPage() {
     const urlValue = e.target.value;
     setThumbnailUrl(urlValue);
     if (urlValue) {
+      // Revoke any existing thumbnail object URL
+      if (thumbnailObjectUrlRef.current) {
+        URL.revokeObjectURL(thumbnailObjectUrlRef.current);
+        thumbnailObjectUrlRef.current = null;
+      }
       setThumbnailPreviewUrl(urlValue);
       setThumbnailFile(null);
     } else {
+      // If URL is cleared, revoke any object URL and revert to original thumbnail
+      if (thumbnailObjectUrlRef.current) {
+        URL.revokeObjectURL(thumbnailObjectUrlRef.current);
+        thumbnailObjectUrlRef.current = null;
+      }
       setThumbnailPreviewUrl(thumbnailUrl || video?.thumbnail || null);
     }
   };
@@ -242,6 +305,9 @@ export default function EditVideoPage() {
           url: videoUrlValue,
           thumbnail: thumbnailValue,
           duration: duration ? parseInt(duration, 10) : null,
+          unlockType,
+          unlockDays: unlockType === 'DAYS_AFTER_ENROLLMENT' && unlockDays ? parseInt(unlockDays, 10) : null,
+          unlockDate: unlockType === 'SPECIFIC_DATE' && unlockDate ? unlockDate : null,
         }),
       });
 
@@ -503,6 +569,88 @@ export default function EditVideoPage() {
               className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="e.g. 300 for a 5 minute video"
             />
+          </div>
+
+          {/* Unlock Schedule */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Unlock Schedule
+            </label>
+            <div className="space-y-2">
+              <label className="flex items-center">
+                <input
+                  type="radio"
+                  name="unlockType"
+                  value="IMMEDIATE"
+                  checked={unlockType === 'IMMEDIATE'}
+                  onChange={(e) => setUnlockType(e.target.value as any)}
+                  className="mr-2"
+                />
+                <span className="text-gray-700 dark:text-gray-300">Immediately available</span>
+              </label>
+              <label className="flex items-center">
+                <input
+                  type="radio"
+                  name="unlockType"
+                  value="DAYS_AFTER_ENROLLMENT"
+                  checked={unlockType === 'DAYS_AFTER_ENROLLMENT'}
+                  onChange={(e) => setUnlockType(e.target.value as any)}
+                  className="mr-2"
+                />
+                <span className="text-gray-700 dark:text-gray-300">Days after enrollment</span>
+              </label>
+              <label className="flex items-center">
+                <input
+                  type="radio"
+                  name="unlockType"
+                  value="SPECIFIC_DATE"
+                  checked={unlockType === 'SPECIFIC_DATE'}
+                  onChange={(e) => setUnlockType(e.target.value as any)}
+                  className="mr-2"
+                />
+                <span className="text-gray-700 dark:text-gray-300">Specific date</span>
+              </label>
+            </div>
+
+            {/* Days after enrollment */}
+            {unlockType === 'DAYS_AFTER_ENROLLMENT' && (
+              <div className="mt-4">
+                <label htmlFor="unlockDays" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Days after enrollment
+                </label>
+                <input
+                  type="number"
+                  id="unlockDays"
+                  value={unlockDays}
+                  onChange={(e) => setUnlockDays(e.target.value)}
+                  min="0"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="e.g., 7 for one week"
+                />
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Video will unlock this many days after the student enrolls.
+                </p>
+              </div>
+            )}
+
+            {/* Specific date */}
+            {unlockType === 'SPECIFIC_DATE' && (
+              <div className="mt-4">
+                <label htmlFor="unlockDate" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Unlock date
+                </label>
+                <input
+                  type="datetime-local"
+                  id="unlockDate"
+                  value={unlockDate}
+                  onChange={(e) => setUnlockDate(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Video will unlock at this date and time (UTC).
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Description */}

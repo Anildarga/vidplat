@@ -47,6 +47,47 @@ export default function Header() {
               >
                 Browse Courses
               </Link>
+              
+              {/* Our Services Dropdown */}
+              <div className="relative group">
+                <button className="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 flex items-center gap-1">
+                  Our Services
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                <div className="absolute left-0 mt-2 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                  <div className="p-4">
+                    <h4 className="font-semibold text-gray-900 dark:text-white mb-2">What We Offer</h4>
+                    <ul className="space-y-2">
+                      <li>
+                        <Link href="/courses" className="block text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700">
+                          <span className="font-medium">Online Courses</span>
+                          <p className="text-sm"></p>
+                        </Link>
+                      </li>
+                      <li>
+                        <Link href="/instructor" className="block text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700">
+                          <span className="font-medium">Instructor Platform</span>
+                          <p className="text-sm"></p>
+                        </Link>
+                      </li>
+                      <li>
+                        <Link href="/student" className="block text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700">
+                          <span className="font-medium">Learning Dashboard</span>
+                          <p className="text-sm"></p>
+                        </Link>
+                      </li>
+                      <li>
+                        <Link href="/help" className="block text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700">
+                          <span className="font-medium">24/7 Support</span>
+                          <p className="text-sm"></p>
+                        </Link>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
               {isAuthenticated && session?.user ? (
                 <ProfileMenu user={session.user} onLogout={logout} />
               ) : (

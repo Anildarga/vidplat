@@ -28,6 +28,18 @@ interface VideoStat {
   avgWatchedSeconds: number;
 }
 
+interface ReviewStat {
+  id: string;
+  rating: number;
+  comment: string | null;
+  createdAt: Date;
+  user: {
+    id: string;
+    name: string | null;
+    email: string | null;
+  };
+}
+
 interface QuizStat {
   id: string;
   title: string;
@@ -45,9 +57,12 @@ interface AnalyticsData {
   };
   totalEnrollments: number;
   avgCompletionPercent: number;
+  totalReviews: number;
+  averageRating: number;
   students: StudentProgress[];
   videoStats: VideoStat[];
   quizStats: QuizStat[];
+  reviews: ReviewStat[];
 }
 
 async function getAnalytics(courseId: string, userId: string, userRole: string): Promise<AnalyticsData | null> {
@@ -76,7 +91,7 @@ async function getAnalytics(courseId: string, userId: string, userRole: string):
   }
 
   // Fetch all related data in parallel
-  const [enrollments, allProgress, quizAttemptsWithQuiz] = await Promise.all([
+  const [enrollments, allProgress, quizAttemptsWithQuiz, reviews] = await Promise.all([
     prisma.enrollment.findMany({
       where: { courseId },
       include: {
@@ -103,11 +118,26 @@ async function getAnalytics(courseId: string, userId: string, userRole: string):
           select: { id: true, title: true }
         }
       }
-    })
+    }),
+    (prisma as any).review.findMany({
+      where: { courseId },
+      include: {
+        user: {
+          select: { id: true, name: true, email: true }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    }) as any[]
   ]);
 
   const totalEnrollments = enrollments.length;
   const totalVideos = course.videos.length;
+  
+  // Calculate review statistics
+  const totalReviews = (reviews as any[]).length;
+  const averageRating = totalReviews > 0
+    ? (reviews as any[]).reduce((sum: number, review: any) => sum + (review.rating || 0), 0) / totalReviews
+    : 0;
 
   // Compute per-student progress
   const studentProgressMap = new Map<string, {
@@ -232,6 +262,19 @@ async function getAnalytics(courseId: string, userId: string, userRole: string):
     };
   }).filter(q => q.totalAttempts > 0); // Only include quizzes with attempts
 
+  // Format reviews for the response
+  const formattedReviews: ReviewStat[] = (reviews as any[]).map(review => ({
+    id: review.id,
+    rating: review.rating,
+    comment: review.comment,
+    createdAt: review.createdAt,
+    user: {
+      id: review.user.id,
+      name: review.user.name,
+      email: review.user.email
+    }
+  }));
+
   return {
     course: {
       id: course.id,
@@ -241,9 +284,12 @@ async function getAnalytics(courseId: string, userId: string, userRole: string):
     },
     totalEnrollments,
     avgCompletionPercent,
+    totalReviews,
+    averageRating: parseFloat(averageRating.toFixed(1)),
     students,
     videoStats,
-    quizStats
+    quizStats,
+    reviews: formattedReviews
   };
 }
 
@@ -280,7 +326,17 @@ export default async function CourseAnalyticsPage({
     );
   }
 
-  const { course, totalEnrollments, avgCompletionPercent, students, videoStats, quizStats } = analytics;
+  const {
+    course,
+    totalEnrollments,
+    avgCompletionPercent,
+    totalReviews,
+    averageRating,
+    students,
+    videoStats,
+    quizStats,
+    reviews
+  } = analytics;
 
   // Format date
   const formatDate = (date: Date) =>
@@ -318,7 +374,7 @@ export default async function CourseAnalyticsPage({
       </div>
 
       {/* SECTION 1 — Course Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
         <StatCard
           label="Enrolled Students"
           value={totalEnrollments}
@@ -331,8 +387,15 @@ export default async function CourseAnalyticsPage({
           color={avgCompletionPercent >= 70 ? 'green' : avgCompletionPercent >= 40 ? 'amber' : 'red'}
         />
         <StatCard
-          label="Quiz Attempts"
-          value={quizStats.reduce((sum, q) => sum + q.totalAttempts, 0)}
+          label="Average Rating"
+          value={averageRating > 0 ? averageRating.toFixed(1) : 'N/A'}
+          subtitle={`${totalReviews} review${totalReviews !== 1 ? 's' : ''}`}
+          color={averageRating >= 4 ? 'green' : averageRating >= 3 ? 'amber' : averageRating > 0 ? 'red' : 'blue'}
+        />
+        <StatCard
+          label="Total Reviews"
+          value={totalReviews}
+          subtitle="Student feedback"
           color="purple"
         />
         <StatCard
@@ -563,6 +626,86 @@ export default async function CourseAnalyticsPage({
                       }`}>
                         {quiz.avgPercent}%
                       </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* SECTION 5 — Reviews */}
+      {reviews.length > 0 && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow mb-8 overflow-hidden">
+          <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+              Student Reviews
+            </h2>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+              Showing {reviews.length} review{reviews.length !== 1 ? 's' : ''}
+            </p>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 dark:bg-gray-900/50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Student
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Rating
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Comment
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Date
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                {reviews.map((review) => (
+                  <tr key={review.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div>
+                          <div className="text-sm font-medium text-gray-900 dark:text-white">
+                            {review.user.name || 'Anonymous'}
+                          </div>
+                          <div className="text-sm text-gray-500 dark:text-gray-400">
+                            {review.user.email}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="text-sm font-medium text-gray-900 dark:text-white mr-2">
+                          {review.rating}/5
+                        </div>
+                        <div className="flex">
+                          {[...Array(5)].map((_, i) => (
+                            <svg
+                              key={i}
+                              className={`h-4 w-4 ${i < review.rating ? 'text-yellow-400' : 'text-gray-300 dark:text-gray-600'}`}
+                              fill="currentColor"
+                              viewBox="0 0 20 20"
+                            >
+                              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                            </svg>
+                          ))}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="text-sm text-gray-900 dark:text-white max-w-md">
+                        {review.comment || <span className="text-gray-400 italic">No comment</span>}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                      {formatDate(review.createdAt)}
                     </td>
                   </tr>
                 ))}

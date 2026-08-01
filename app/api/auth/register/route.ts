@@ -6,7 +6,7 @@ import { sendVerificationEmail } from '@/lib/email';
 
 export async function POST(req: NextRequest) {
   try {
-    const { name, email, password, role } = await req.json();
+    const { name, email, password, role, acceptedTerms, acceptedPrivacy } = await req.json();
 
     if (!name || !email || !password) {
       return NextResponse.json(
@@ -18,6 +18,13 @@ export async function POST(req: NextRequest) {
     if (password.length < 8) {
       return NextResponse.json(
         { success: false, error: 'Password must be at least 8 characters' },
+        { status: 400 }
+      );
+    }
+
+    if (!acceptedTerms || !acceptedPrivacy) {
+      return NextResponse.json(
+        { success: false, error: 'You must accept the Terms of Service and Privacy Policy' },
         { status: 400 }
       );
     }
@@ -40,6 +47,8 @@ export async function POST(req: NextRequest) {
         role: role === 'INSTRUCTOR' ? 'INSTRUCTOR' : 'STUDENT',
         onboardingCompleted: true, // Credentials users complete onboarding via role selection in form
         emailVerified: null, // They need to verify email
+        acceptedTermsAt: new Date(),
+        acceptedPrivacyAt: new Date(),
       },
       select: { id: true, name: true, email: true, role: true, onboardingCompleted: true },
     });

@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { isValidVideoUrl } from '@/lib/utils';
+import DragDropUpload from '@/components/upload/DragDropUpload';
 
 export default function NewVideoPage() {
   const { data: session, status } = useSession();
@@ -22,6 +23,9 @@ export default function NewVideoPage() {
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
   const [thumbnailUrl, setThumbnailUrl] = useState<string>('');
   const [duration, setDuration] = useState('');
+  const [unlockType, setUnlockType] = useState<'IMMEDIATE' | 'DAYS_AFTER_ENROLLMENT' | 'SPECIFIC_DATE'>('IMMEDIATE');
+  const [unlockDays, setUnlockDays] = useState<string>('');
+  const [unlockDate, setUnlockDate] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -117,11 +121,15 @@ export default function NewVideoPage() {
     }
 
     let videoUrl: string;
+    let thumbnailValue: string | null = null;
+    let videoDuration: number | null = duration ? parseInt(duration, 10) : null;
+
     if (videoFile) {
       // Upload video file first
       setVideoUploadProgress(true);
       const formData = new FormData();
       formData.append('file', videoFile);
+      formData.append('type', 'cloudinary'); // Force Cloudinary upload for videos
 
       try {
         const uploadRes = await fetch('/api/upload', {
@@ -136,6 +144,19 @@ export default function NewVideoPage() {
         }
 
         videoUrl = uploadData.data.url;
+        
+        // Use auto-generated thumbnail from Cloudinary if available
+        if (uploadData.data.thumbnail_url) {
+          thumbnailValue = uploadData.data.thumbnail_url;
+          setThumbnailUrl(uploadData.data.thumbnail_url);
+          setPreviewUrl(uploadData.data.thumbnail_url);
+        }
+        
+        // Use video duration from Cloudinary metadata if available
+        if (uploadData.data.duration && !duration) {
+          videoDuration = Math.round(uploadData.data.duration);
+          setDuration(videoDuration.toString());
+        }
       } catch (err: any) {
         setError('Video upload failed: ' + err.message);
         setVideoUploadProgress(false);
@@ -155,9 +176,8 @@ export default function NewVideoPage() {
       return;
     }
 
-    // Upload thumbnail if file is selected
-    let thumbnailValue: string | null = null;
-    if (thumbnailFile) {
+    // Upload thumbnail if file is selected (only if not already set by Cloudinary)
+    if (!thumbnailValue && thumbnailFile) {
       const formData = new FormData();
       formData.append('file', thumbnailFile);
 
@@ -173,7 +193,7 @@ export default function NewVideoPage() {
       }
 
       thumbnailValue = uploadData.data.url;
-    } else if (thumbnailUrl.trim()) {
+    } else if (!thumbnailValue && thumbnailUrl.trim()) {
       thumbnailValue = thumbnailUrl.trim();
     }
 
@@ -192,7 +212,10 @@ export default function NewVideoPage() {
           description: description.trim() || null,
           url: videoUrl,
           thumbnail: thumbnailValue,
-          duration: duration ? parseInt(duration, 10) : null,
+          duration: videoDuration,
+          unlockType,
+          unlockDays: unlockType === 'DAYS_AFTER_ENROLLMENT' && unlockDays ? parseInt(unlockDays, 10) : null,
+          unlockDate: unlockType === 'SPECIFIC_DATE' && unlockDate ? unlockDate : null,
         }),
       });
 
@@ -264,58 +287,58 @@ export default function NewVideoPage() {
               Video <span className="text-red-500">*</span>
             </label>
 
-            {/* File upload */}
-            <div className="mb-3">
-              <input
-                ref={videoFileInputRef}
-                type="file"
-                id="videoFile"
-                accept="video/mp4,video/webm,video/ogg,video/quicktime,video/x-msvideo"
-                onChange={handleVideoFileChange}
-                className="block w-full text-sm text-gray-500 dark:text-gray-400
-                  file:mr-4 file:py-2 file:px-4
-                  file:rounded-lg file:border-0
-                  file:text-sm file:font-medium
-                  file:bg-blue-50 file:text-blue-700
-                  dark:file:bg-blue-900/30 dark:file:text-blue-400
-                  hover:file:bg-blue-100 dark:hover:file:bg-blue-900/50
-                "
+            {/* Drag & Drop Upload Component */}
+            <div className="mb-6">
+              <DragDropUpload
+                onFileSelect={(file) => {
+                  setVideoFile(file);
+                  setUrl('');
+                  // Create preview URL for the video file
+                  const url = URL.createObjectURL(file);
+                  setVideoPreviewUrl(url);
+                }}
+                acceptedTypes="video/mp4,video/webm,video/ogg,video/quicktime,video/x-msvideo,video/mpeg"
+                maxSize={500}
+                label="Upload Video File"
+                description="Drag & drop a video file here, or click to browse"
+                preview={true}
               />
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                Upload a video file (MP4, WebM, OGG, MOV, AVI) • Max 500MB
-              </p>
             </div>
 
             {/* OR separator */}
-            <div className="relative my-4">
+            <div className="relative my-6">
               <div className="absolute inset-0 flex items-center">
                 <div className="w-full border-t border-gray-300 dark:border-gray-600"></div>
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white dark:bg-gray-800 text-gray-500">OR</span>
+                <span className="px-4 bg-white dark:bg-gray-800 text-gray-500 font-medium">OR</span>
               </div>
             </div>
 
             {/* Manual URL input */}
             <div>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                Paste a YouTube, Vimeo, or direct video URL
+              </p>
               <input
                 type="url"
                 id="url"
                 value={url}
                 onChange={handleUrlChange}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Or paste a video URL (YouTube, Vimeo, direct video link)..."
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="https://www.youtube.com/watch?v=... or https://example.com/video.mp4"
               />
               {videoPreviewUrl && (
-                <div className="mt-3">
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Preview:</p>
-                  <div className="aspect-video w-full max-w-lg rounded overflow-hidden bg-black">
+                <div className="mt-4">
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Preview:</p>
+                  <div className="aspect-video w-full max-w-2xl rounded-lg overflow-hidden bg-black shadow-lg">
                     {url.includes('youtube.com') || url.includes('youtu.be') ? (
                       <iframe
                         src={videoPreviewUrl}
                         className="w-full h-full"
                         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                         allowFullScreen
+                        title="Video preview"
                       />
                     ) : (
                       <video src={videoPreviewUrl} controls className="w-full h-full" />
@@ -403,6 +426,98 @@ export default function NewVideoPage() {
               className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="e.g. 300 for a 5 minute video"
             />
+          </div>
+
+          {/* Content Scheduling */}
+          <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Content Scheduling</h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+              Control when this video becomes available to students.
+            </p>
+
+            <div className="space-y-4">
+              {/* Unlock Type */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Unlock Schedule
+                </label>
+                <div className="space-y-2">
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="unlockType"
+                      value="IMMEDIATE"
+                      checked={unlockType === 'IMMEDIATE'}
+                      onChange={(e) => setUnlockType(e.target.value as any)}
+                      className="mr-2"
+                    />
+                    <span className="text-gray-700 dark:text-gray-300">Immediately available</span>
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="unlockType"
+                      value="DAYS_AFTER_ENROLLMENT"
+                      checked={unlockType === 'DAYS_AFTER_ENROLLMENT'}
+                      onChange={(e) => setUnlockType(e.target.value as any)}
+                      className="mr-2"
+                    />
+                    <span className="text-gray-700 dark:text-gray-300">Days after enrollment</span>
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="unlockType"
+                      value="SPECIFIC_DATE"
+                      checked={unlockType === 'SPECIFIC_DATE'}
+                      onChange={(e) => setUnlockType(e.target.value as any)}
+                      className="mr-2"
+                    />
+                    <span className="text-gray-700 dark:text-gray-300">Specific date</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Days after enrollment */}
+              {unlockType === 'DAYS_AFTER_ENROLLMENT' && (
+                <div>
+                  <label htmlFor="unlockDays" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Days after enrollment
+                  </label>
+                  <input
+                    type="number"
+                    id="unlockDays"
+                    value={unlockDays}
+                    onChange={(e) => setUnlockDays(e.target.value)}
+                    min="0"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="e.g., 7 for one week"
+                  />
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Video will unlock this many days after the student enrolls.
+                  </p>
+                </div>
+              )}
+
+              {/* Specific date */}
+              {unlockType === 'SPECIFIC_DATE' && (
+                <div>
+                  <label htmlFor="unlockDate" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Unlock date
+                  </label>
+                  <input
+                    type="datetime-local"
+                    id="unlockDate"
+                    value={unlockDate}
+                    onChange={(e) => setUnlockDate(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Video will unlock at this date and time (UTC).
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Description */}

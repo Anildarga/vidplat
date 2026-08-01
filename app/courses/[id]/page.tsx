@@ -7,6 +7,9 @@ import Link from 'next/link';
 import DeleteButton from './DeleteButton';
 import { formatDuration } from '@/lib/utils';
 import EnrollButton from '@/components/courses/EnrollButton';
+import ReviewsSection from '@/components/courses/ReviewsSection';
+import RatingStars from '@/components/RatingStars';
+import BookmarkButton from '@/components/courses/BookmarkButton';
 
 // This is a SERVER component
 export default async function CourseDetailPage({
@@ -48,7 +51,24 @@ export default async function CourseDetailPage({
     notFound();
   }
 
-  const isOwner = session?.user?.id === course.instructorId;
+  // Fetch reviews for this course separately
+  const reviews = await (prisma as any).review.findMany({
+    where: { courseId: id },
+    select: {
+      id: true,
+      rating: true,
+    },
+  });
+  
+  // Calculate average rating
+  const averageRating = reviews.length > 0
+    ? parseFloat((reviews.reduce((sum: number, review: any) => sum + (review.rating || 0), 0) / reviews.length).toFixed(1))
+    : 0;
+  const totalReviews = reviews.length;
+  
+  const courseWithDetails = course as any;
+
+  const isOwner = session?.user?.id === courseWithDetails.instructorId;
   const isAdmin = session?.user?.role === 'ADMIN';
   const canEdit = isOwner || isAdmin;
 
@@ -122,29 +142,29 @@ export default async function CourseDetailPage({
             <div className="flex justify-between items-start mb-4">
               <div>
                 <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-                  {course.title}
+                  {courseWithDetails.title}
                 </h1>
                 <p className="text-gray-600 dark:text-gray-300 mt-2">
-                  by {course.instructor.name || 'Unknown Instructor'}
+                  by {courseWithDetails.instructor?.name || 'Unknown Instructor'}
                 </p>
               </div>
               <div className="flex flex-col gap-2">
                 {canEdit && (
                   <>
                     <Link
-                      href={`/instructor/courses/${course.id}/edit`}
+                      href={`/instructor/courses/${courseWithDetails.id}/edit`}
                       className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-center"
                     >
                       Edit
                     </Link>
-                    <DeleteButton courseId={course.id} />
+                    <DeleteButton courseId={courseWithDetails.id} />
                   </>
                 )}
               </div>
             </div>
 
-            {course.description && (
-              <p className="text-gray-700 dark:text-gray-300 mb-6">{course.description}</p>
+            {courseWithDetails.description && (
+              <p className="text-gray-700 dark:text-gray-300 mb-6">{courseWithDetails.description}</p>
             )}
 
             <div className="flex flex-wrap gap-4 text-sm text-gray-500 dark:text-gray-400 mb-6">
@@ -152,25 +172,45 @@ export default async function CourseDetailPage({
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                 </svg>
-                {course._count.videos} videos
+                {courseWithDetails._count?.videos || 0} videos
               </span>
               <span className="flex items-center gap-1">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                 </svg>
-                {course.quizzes.length} quizzes
+                {courseWithDetails.quizzes?.length || 0} quizzes
               </span>
               <span className="flex items-center gap-1">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                 </svg>
-                {course._count.enrollments} enrolled
+                {courseWithDetails._count?.enrollments || 0} enrolled
+              </span>
+              <span className="flex items-center gap-1">
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
+                </svg>
+                {averageRating > 0 ? (
+                  <>
+                    <span className="font-medium">{averageRating.toFixed(1)}</span>
+                    <span className="text-gray-400">({totalReviews})</span>
+                  </>
+                ) : (
+                  <span className="text-gray-400">No ratings</span>
+                )}
               </span>
             </div>
 
             {/* Enrollment / Sign in section */}
             <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
-              <EnrollButton courseId={course.id} />
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex-1">
+                  <EnrollButton courseId={courseWithDetails.id} />
+                </div>
+                <div className="flex-1">
+                  <BookmarkButton courseId={courseWithDetails.id} size="md" showText />
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -181,11 +221,11 @@ export default async function CourseDetailPage({
         <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
           Course Content
         </h2>
-        {course.videos.length === 0 ? (
+        {courseWithDetails.videos?.length === 0 ? (
           <p className="text-gray-600 dark:text-gray-400">No videos added yet.</p>
         ) : (
           <ul className="space-y-3">
-            {course.videos.map((video, index) => (
+            {courseWithDetails.videos?.map((video: any, index: number) => (
               <li
                 key={video.id}
                 className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow flex items-center gap-4"
@@ -219,11 +259,11 @@ export default async function CourseDetailPage({
         <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
           Quizzes
         </h2>
-        {course.quizzes.length === 0 ? (
+        {courseWithDetails.quizzes?.length === 0 ? (
           <p className="text-gray-600 dark:text-gray-400">No quizzes added yet.</p>
         ) : (
           <ul className="space-y-3">
-            {course.quizzes.map((quiz) => (
+            {courseWithDetails.quizzes?.map((quiz: any) => (
               <li
                 key={quiz.id}
                 className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow"
@@ -239,6 +279,9 @@ export default async function CourseDetailPage({
           </ul>
         )}
       </div>
+
+      {/* Reviews Section */}
+      <ReviewsSection courseId={courseWithDetails.id} />
     </div>
   );
 }

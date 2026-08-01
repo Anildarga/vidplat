@@ -3,6 +3,8 @@ import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 import { CourseWithDetails } from '@/types/course';
 import Link from 'next/link';
+import RatingStars from '@/components/RatingStars';
+import BookmarkButton from '@/components/courses/BookmarkButton';
 
 // This page is a server component that receives searchParams automatically
 interface CoursesPageProps {
@@ -51,7 +53,50 @@ export default async function CoursesPage({ searchParams }: CoursesPageProps) {
     },
   });
 
-  const typedCourses: CourseWithDetails[] = courses as CourseWithDetails[];
+  // Fetch reviews for all courses separately
+  const courseIds = courses.map(course => course.id);
+  const reviewsByCourseId: Record<string, any[]> = {};
+  
+  if (courseIds.length > 0) {
+    const reviews = await (prisma as any).review.findMany({
+      where: {
+        courseId: {
+          in: courseIds,
+        },
+      },
+      select: {
+        id: true,
+        rating: true,
+        courseId: true,
+      },
+    });
+    
+    // Group reviews by courseId
+    reviews.forEach((review: any) => {
+      if (!reviewsByCourseId[review.courseId]) {
+        reviewsByCourseId[review.courseId] = [];
+      }
+      reviewsByCourseId[review.courseId].push(review);
+    });
+  }
+
+  // Calculate average rating for each course
+  const typedCourses: CourseWithDetails[] = courses.map(course => {
+    const reviews = reviewsByCourseId[course.id] || [];
+    const avgRating = reviews.length > 0
+      ? reviews.reduce((sum: number, review: any) => sum + (review.rating || 0), 0) / reviews.length
+      : 0;
+    
+    return {
+      ...course,
+      reviews,
+      averageRating: parseFloat(avgRating.toFixed(1)), // Round to 1 decimal
+      _count: {
+        ...course._count,
+        reviews: reviews.length,
+      },
+    } as CourseWithDetails;
+  });
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
@@ -120,12 +165,16 @@ export default async function CoursesPage({ searchParams }: CoursesPageProps) {
                 )}
                 {/* Published Badge */}
                 {course.isPublished && (
-                  <div className="absolute top-2 right-2">
+                  <div className="absolute top-2 left-2">
                     <span className="bg-green-500 text-white text-xs px-2 py-1 rounded">
                       Published
                     </span>
                   </div>
                 )}
+                {/* Bookmark button */}
+                <div className="absolute top-2 right-2">
+                  <BookmarkButton courseId={course.id} size="sm" />
+                </div>
               </div>
 
               {/* Content */}
@@ -138,10 +187,25 @@ export default async function CoursesPage({ searchParams }: CoursesPageProps) {
                   By {course.instructor.name || 'Unknown Instructor'}
                 </p>
 
-                <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400 mb-4">
+                <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500 dark:text-gray-400 mb-4">
                   <span>{course._count.videos} videos</span>
                   <span>{course.quizzes.length} quizzes</span>
                   <span>{course._count.enrollments} enrollments</span>
+                  <div className="flex items-center gap-1">
+                    {course.averageRating > 0 ? (
+                      <>
+                        <RatingStars rating={course.averageRating} size="sm" />
+                        <span className="ml-1 font-medium">
+                          {course.averageRating.toFixed(1)}
+                        </span>
+                        <span className="text-gray-400">
+                          ({course._count.reviews})
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-gray-400">No ratings yet</span>
+                    )}
+                  </div>
                 </div>
 
                 <Link

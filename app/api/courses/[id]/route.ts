@@ -63,7 +63,29 @@ export async function GET(
       }
     }
 
-    const typedCourse: CourseWithDetails = course as CourseWithDetails;
+    // Fetch reviews for this course separately
+    const reviews = await (prisma as any).review.findMany({
+      where: { courseId: id },
+      select: {
+        id: true,
+        rating: true,
+      },
+    });
+    
+    // Calculate average rating
+    const averageRating = reviews.length > 0
+      ? parseFloat((reviews.reduce((sum: number, review: any) => sum + (review.rating || 0), 0) / reviews.length).toFixed(1))
+      : 0;
+    
+    const typedCourse: CourseWithDetails = {
+      ...course,
+      reviews,
+      averageRating,
+      _count: {
+        ...course._count,
+        reviews: reviews.length,
+      },
+    } as CourseWithDetails;
 
     return NextResponse.json({ success: true, data: typedCourse });
   } catch (error) {
@@ -115,7 +137,7 @@ export async function PATCH(
       );
     }
 
-    const { title, description, thumbnail, isPublished } = await req.json();
+    const { title, description, thumbnail, isPublished, price, currency, isFree } = await req.json();
 
     const updateData: Record<string, unknown> = {};
 
@@ -139,6 +161,30 @@ export async function PATCH(
 
     if (isPublished !== undefined) {
       updateData.isPublished = Boolean(isPublished);
+    }
+
+    if (price !== undefined) {
+      const priceValue = parseFloat(price);
+      if (priceValue < 0) {
+        return NextResponse.json(
+          { success: false, error: 'Price cannot be negative' },
+          { status: 400 }
+        );
+      }
+      updateData.price = priceValue;
+      
+      // Auto-set isFree if price is 0
+      if (priceValue === 0) {
+        updateData.isFree = true;
+      }
+    }
+
+    if (currency !== undefined) {
+      updateData.currency = currency.trim();
+    }
+
+    if (isFree !== undefined) {
+      updateData.isFree = Boolean(isFree);
     }
 
     const updatedCourse = await prisma.course.update({

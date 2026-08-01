@@ -15,6 +15,9 @@ interface Video {
   duration: number | null;
   order: number;
   courseId: string;
+  unlockType: 'IMMEDIATE' | 'DAYS_AFTER_ENROLLMENT' | 'SPECIFIC_DATE';
+  unlockDays: number | null;
+  unlockDate: string | null;
 }
 
 interface Course {
@@ -35,6 +38,24 @@ export default function VideosPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [playingVideo, setPlayingVideo] = useState<Video | null>(null);
   const [showModal, setShowModal] = useState(false);
+
+  // Helper function to format unlock schedule
+  const formatUnlockSchedule = (video: Video): string => {
+    switch (video.unlockType) {
+      case 'IMMEDIATE':
+        return 'Available immediately';
+      case 'DAYS_AFTER_ENROLLMENT':
+        return `Unlocks ${video.unlockDays} day${video.unlockDays !== 1 ? 's' : ''} after enrollment`;
+      case 'SPECIFIC_DATE':
+        if (video.unlockDate) {
+          const date = new Date(video.unlockDate);
+          return `Unlocks on ${date.toLocaleDateString()} at ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+        }
+        return 'Unlocks on specific date (date not set)';
+      default:
+        return 'Available immediately';
+    }
+  };
 
   // Redirect if not authenticated or not instructor/admin
   useEffect(() => {
@@ -261,6 +282,9 @@ export default function VideosPage() {
                   {video.duration && (
                     <p className="text-sm text-gray-500 dark:text-gray-400">{formatDuration(video.duration)}</p>
                   )}
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    {formatUnlockSchedule(video)}
+                  </p>
                 </div>
 
                 {/* Actions */}

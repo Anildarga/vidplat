@@ -72,11 +72,20 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { title, description, thumbnail } = await req.json();
+    const { title, description, thumbnail, price, currency, isFree } = await req.json();
 
     if (!title || typeof title !== 'string' || title.trim() === '') {
       return NextResponse.json(
         { success: false, error: 'Title is required' },
+        { status: 400 }
+      );
+    }
+
+    // Validate price
+    const priceValue = price !== undefined ? parseFloat(price) : 0;
+    if (priceValue < 0) {
+      return NextResponse.json(
+        { success: false, error: 'Price cannot be negative' },
         { status: 400 }
       );
     }
@@ -88,6 +97,9 @@ export async function POST(req: NextRequest) {
         thumbnail: thumbnail?.trim(),
         instructorId: session.user.id,
         isPublished: false,
+        price: priceValue,
+        currency: currency?.trim() || 'USD',
+        isFree: isFree !== undefined ? Boolean(isFree) : priceValue === 0,
       },
       include: {
         instructor: {

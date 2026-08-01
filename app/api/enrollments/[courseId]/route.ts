@@ -68,6 +68,8 @@ export async function POST(
     }
 
     const { courseId } = await params;
+    const body = await req.json();
+    const { couponCode } = body;
 
     // Check if course exists and is published
     const course = await prisma.course.findUnique({
@@ -105,31 +107,176 @@ export async function POST(
       );
     }
 
-    // Create enrollment
-    const enrollment = await prisma.enrollment.create({
-      data: {
-        userId: session.user.id,
-        courseId,
-      },
-      include: {
-        course: {
-          include: {
-            instructor: {
-              select: {
-                id: true,
-                name: true,
-                image: true,
+    let couponId: string | null = null;
+    let discountApplied = 0;
+    let finalPrice = course.price || 0;
+
+    // Validate coupon if provided
+    if (couponCode) {
+      const coupon = await prisma.coupon.findUnique({
+        where: { code: couponCode },
+        include: {
+          _count: {
+            select: {
+              usages: true,
+            },
+          },
+        },
+      });
+
+      if (!coupon) {
+        return NextResponse.json(
+          { success: false, error: 'Invalid coupon code' },
+          { status: 400 }
+        );
+      }
+
+      // Check if coupon is active
+      if (!coupon.isActive) {
+        return NextResponse.json(
+          { success: false, error: 'Coupon is inactive' },
+          { status: 400 }
+        );
+      }
+
+      // Check expiry
+      if (coupon.expiresAt && coupon.expiresAt < new Date()) {
+        return NextResponse.json(
+          { success: false, error: 'Coupon has expired' },
+          { status: 400 }
+        );
+      }
+
+      // Check if coupon is for this course (or global)
+      if (coupon.courseId && coupon.courseId !== courseId) {
+        return NextResponse.json(
+          { success: false, error: 'This coupon is not valid for the selected course' },
+          { status: 400 }
+        );
+      }
+
+      // Check usage limits
+      if (coupon.maxUses !== null && coupon._count.usages >= coupon.maxUses) {
+        return NextResponse.json(
+          { success: false, error: 'Coupon usage limit reached' },
+          { status: 400 }
+        );
+      }
+
+      // Check if user has already used this coupon for this course
+      const existingUsage = await prisma.couponUsage.findUnique({
+        where: {
+          couponId_userId_courseId: {
+            couponId: coupon.id,
+            userId: session.user.id,
+            courseId,
+          },
+        },
+      });
+
+      if (existingUsage) {
+        return NextResponse.json(
+          { success: false, error: 'You have already used this coupon for this course' },
+          { status: 400 }
+        );
+      }
+
+      couponId = coupon.id;
+
+      // Calculate discount
+      if (coupon.discountType === 'PERCENTAGE') {
+        discountApplied = Math.round((course.price || 0) * (coupon.discountValue / 100));
+      } else {
+        discountApplied = coupon.discountValue;
+      }
+
+      // Ensure discount doesn't exceed price
+      discountApplied = Math.min(discountApplied, course.price || 0);
+      finalPrice = Math.max(0, (course.price || 0) - discountApplied);
+    }
+
+    // Check if course is free or price is 0
+    if (course.isFree || finalPrice <= 0) {
+      // Create enrollment directly for free courses
+      const enrollment = await prisma.enrollment.create({
+        data: {
+          userId: session.user.id,
+          courseId,
+          couponId,
+          discountApplied,
+          finalPrice,
+          paymentStatus: 'COMPLETED',
+          paidAt: new Date(),
+        },
+        include: {
+          course: {
+            include: {
+              instructor: {
+                select: {
+                  id: true,
+                  name: true,
+                  image: true,
+                },
               },
             },
           },
         },
-      },
-    });
+      });
 
-    return NextResponse.json(
-      { success: true, data: enrollment },
-      { status: 201 }
-    );
+      // Create coupon usage record if coupon was used
+      if (couponId) {
+        await prisma.couponUsage.create({
+          data: {
+            couponId,
+            userId: session.user.id,
+            courseId,
+            discountApplied,
+          },
+        });
+      }
+
+      return NextResponse.json(
+        {
+          success: true,
+          data: enrollment,
+          discountApplied,
+          finalPrice,
+          couponUsed: !!couponId,
+          freeEnrollment: true,
+        },
+        { status: 201 }
+      );
+    } else {
+      // For paid courses, redirect to Stripe checkout
+      // Create pending enrollment first
+      const enrollment = await prisma.enrollment.create({
+        data: {
+          userId: session.user.id,
+          courseId,
+          couponId,
+          discountApplied,
+          finalPrice,
+          paymentStatus: 'PENDING',
+        },
+      });
+
+      // Return checkout URL to frontend
+      return NextResponse.json(
+        {
+          success: true,
+          data: {
+            enrollmentId: enrollment.id,
+            requiresPayment: true,
+            finalPrice,
+            discountApplied,
+            couponUsed: !!couponId,
+            message: 'Payment required for this course',
+          },
+          redirectToCheckout: true,
+        },
+        { status: 200 }
+      );
+    }
   } catch (error) {
     console.error('[enrollments/[courseId] POST]', error instanceof Error ? error.message : error);
 

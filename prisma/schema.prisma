@@ -45,11 +45,15 @@ model User {
   email              String    @unique
   emailVerified      DateTime?
   image              String?
+  username           String?   @unique
+  bio                String?   @db.String
   password           String?
   role               Role      @default(STUDENT)
   isActive           Boolean   @default(true)
   isEmailVerified    Boolean   @default(false)
   onboardingCompleted Boolean  @default(false)
+  acceptedTermsAt     DateTime?
+  acceptedPrivacyAt   DateTime?
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
@@ -60,6 +64,14 @@ model User {
   videoProgress      VideoProgress[]
   quizAttempts       QuizAttempt[]
   certificates       CompletionCertificate[]
+  reviews            Review[]
+  bookmarks          Bookmark[]
+  notes              Note[]
+  discussionQuestions DiscussionQuestion[]
+  discussionReplies   DiscussionReply[]
+  discussionVotes     DiscussionVote[]
+  coupons            Coupon[]
+  couponUsages       CouponUsage[]
 
   @@map("users")
 }
@@ -93,6 +105,9 @@ model Course {
   thumbnail    String?
   instructorId String   @db.ObjectId
   isPublished  Boolean  @default(false)
+  price        Float    @default(0.0)
+  currency     String   @default("USD")
+  isFree       Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -101,19 +116,32 @@ model Course {
   videos       Video[]
   quizzes      Quiz[]
   certificates CompletionCertificate[]
+  reviews      Review[]
+  bookmarks    Bookmark[]
+  coupons      Coupon[]
+  couponUsages CouponUsage[]
 
   @@map("courses")
 }
 
 model Enrollment {
-  id          String    @id @default(auto()) @map("_id") @db.ObjectId
-  userId      String    @db.ObjectId
-  courseId    String    @db.ObjectId
-  enrolledAt  DateTime  @default(now())
-  completedAt DateTime?
+  id               String         @id @default(auto()) @map("_id") @db.ObjectId
+  userId           String         @db.ObjectId
+  courseId         String         @db.ObjectId
+  enrolledAt       DateTime       @default(now())
+  completedAt      DateTime?
+  couponId         String?        @db.ObjectId
+  discountApplied  Float          @default(0.0)
+  finalPrice       Float          @default(0.0)
+  paymentStatus    PaymentStatus  @default(PENDING)
+  stripePaymentId  String?
+  stripeSessionId  String?
+  paidAt           DateTime?
 
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  coupon  Coupon? @relation(fields: [couponId], references: [id], onDelete: SetNull)
+  payments Payment[]
 
   @@unique([userId, courseId])
   @@map("enrollments")
@@ -127,12 +155,17 @@ model Video {
   thumbnail   String?
   duration    Int?
   order       Int      @default(0)
+  unlockType  UnlockType @default(IMMEDIATE)
+  unlockDays  Int?
+  unlockDate  DateTime?
   courseId    String   @db.ObjectId
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   course    Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
   progress  VideoProgress[]
+  notes     Note[]
+  discussionQuestions DiscussionQuestion[]
 
   @@map("videos")
 }
@@ -175,6 +208,7 @@ model Question {
   correctAnswer Int
   quizId        String @db.ObjectId
   order         Int    @default(0)
+  marks         Int    @default(1)
 
   quiz Quiz @relation(fields: [quizId], references: [id], onDelete: Cascade)
 
@@ -211,6 +245,140 @@ model CompletionCertificate {
   @@map("completion_certificates")
 }
 
+model Review {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  courseId  String   @db.ObjectId
+  rating    Int      @default(5) // 1-5 stars
+  comment   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, courseId])
+  @@map("reviews")
+}
+
+model Bookmark {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  courseId  String   @db.ObjectId
+  createdAt DateTime @default(now())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, courseId])
+  @@map("bookmarks")
+}
+
+model Note {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  videoId   String   @db.ObjectId
+  timestamp Int      @default(0) // seconds in video
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, videoId, timestamp])
+  @@map("notes")
+}
+
+model DiscussionQuestion {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  videoId     String   @db.ObjectId
+  userId      String   @db.ObjectId
+  content     String
+  isResolved  Boolean  @default(false)
+  pinned      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  video Video @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  replies DiscussionReply[]
+  votes   DiscussionVote[]
+
+  @@map("discussion_questions")
+}
+
+model DiscussionReply {
+  id               String   @id @default(auto()) @map("_id") @db.ObjectId
+  questionId       String   @db.ObjectId
+  userId           String   @db.ObjectId
+  content          String
+  isInstructorReply Boolean @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  question DiscussionQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  user     User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  votes    DiscussionVote[]
+
+  @@map("discussion_replies")
+}
+
+model DiscussionVote {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String   @db.ObjectId
+  questionId  String?  @db.ObjectId
+  replyId     String?  @db.ObjectId
+  vote        Int      @default(1) // 1 for upvote, -1 for downvote (optional)
+  createdAt   DateTime @default(now())
+
+  user     User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  question DiscussionQuestion? @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  reply    DiscussionReply?    @relation(fields: [replyId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, questionId, replyId])
+  @@map("discussion_votes")
+}
+
+model Coupon {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  code          String   @unique
+  description   String?
+  discountType  DiscountType @default(PERCENTAGE)
+  discountValue Float
+  maxUses       Int?     // null = unlimited
+  usedCount     Int      @default(0)
+  courseId      String?  @db.ObjectId // null = global coupon
+  instructorId  String   @db.ObjectId
+  expiresAt     DateTime?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  course     Course? @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  instructor User    @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+  usages     CouponUsage[]
+  enrollments Enrollment[]
+
+  @@map("coupons")
+}
+
+model CouponUsage {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  couponId  String   @db.ObjectId
+  userId    String   @db.ObjectId
+  courseId  String   @db.ObjectId
+  usedAt    DateTime @default(now())
+  discountApplied Float
+
+  coupon Coupon @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([couponId, userId, courseId])
+  @@map("coupon_usages")
+}
+
 enum Role {
   STUDENT
   INSTRUCTOR
@@ -221,3 +389,41 @@ enum QuizType {
   MAIN
   SUPPLEMENTAL
 }
+
+enum UnlockType {
+  IMMEDIATE
+  DAYS_AFTER_ENROLLMENT
+  SPECIFIC_DATE
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED_AMOUNT
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  REFUNDED
+  CANCELLED
+}
+
+model Payment {
+  id               String       @id @default(auto()) @map("_id") @db.ObjectId
+  enrollmentId     String       @db.ObjectId
+  stripePaymentId  String       @unique
+  stripeSessionId  String       @unique
+  amount           Float
+  currency         String       @default("USD")
+  status           PaymentStatus @default(PENDING)
+  metadata         Json?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  enrollment Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+
+  @@map("payments")
+}
+
