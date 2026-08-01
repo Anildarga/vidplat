@@ -232,6 +232,7 @@ export default function EditVideoPage() {
       setVideoUploadProgress(true);
       const formData = new FormData();
       formData.append('file', videoFile);
+      formData.append('type', 'cloudinary');
 
       try {
         const uploadRes = await fetch('/api/upload', {
@@ -269,6 +270,7 @@ export default function EditVideoPage() {
     if (thumbnailFile) {
       const formData = new FormData();
       formData.append('file', thumbnailFile);
+      formData.append('type', 'cloudinary');
 
       const uploadRes = await fetch('/api/upload', {
         method: 'POST',
