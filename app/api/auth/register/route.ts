@@ -6,14 +6,23 @@ import { sendVerificationEmail } from '@/lib/email';
 
 export async function POST(req: NextRequest) {
   try {
-    const { name, email, password, role, acceptedTerms, acceptedPrivacy } = await req.json();
+    const { name, email: rawEmail, password, role, acceptedTerms, acceptedPrivacy } = await req.json();
 
-    if (!name || !email || !password) {
-      return NextResponse.json(
-        { success: false, error: 'Name, email and password are required' },
-        { status: 400 }
-      );
-    }
+if (!name || !rawEmail || !password) {
+  return NextResponse.json(
+    { success: false, error: 'Name, email and password are required' },
+    { status: 400 }
+  );
+}
+
+const email = String(rawEmail).trim().toLowerCase();
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+if (!EMAIL_REGEX.test(email)) {
+  return NextResponse.json(
+    { success: false, error: 'Please enter a valid email address' },
+    { status: 400 }
+  );
+}
 
     if (password.length < 8) {
       return NextResponse.json(
