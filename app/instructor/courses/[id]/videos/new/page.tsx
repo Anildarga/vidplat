@@ -180,6 +180,7 @@ export default function NewVideoPage() {
     if (!thumbnailValue && thumbnailFile) {
       const formData = new FormData();
       formData.append('file', thumbnailFile);
+      formData.append('type', 'cloudinary');
 
       const uploadRes = await fetch('/api/upload', {
         method: 'POST',
