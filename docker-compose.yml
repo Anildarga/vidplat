@@ -6,9 +6,9 @@ services:
     container_name: eduplat_db
     restart: unless-stopped
     environment:
-      POSTGRES_USER: eduplat
-      POSTGRES_PASSWORD: eduplat123
-      POSTGRES_DB: eduplat
+      POSTGRES_USER: 
+      POSTGRES_PASSWORD: 
+      POSTGRES_DB: 
     ports:
       - '5432:5432'
     volumes:
