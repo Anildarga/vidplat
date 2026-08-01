@@ -37,7 +37,7 @@ A modern, full-featured educational platform built with Next.js 14, MongoDB, and
 ### 1. Clone the repository
 
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/Anildarga/vidplat.git
 cd eduplat
 ```
 
