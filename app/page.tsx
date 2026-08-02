@@ -4,7 +4,6 @@ import HeroSection from '@/components/homepage/HeroSection'
 import StatsSection from '@/components/homepage/StatsSection'
 import FeaturesSection from '@/components/homepage/FeaturesSection'
 import CoursesSection from '@/components/homepage/CoursesSection'
-import HowItWorks from '@/components/homepage/HowItWorks'
 import CTASection from '@/components/homepage/CTASection'
 
 export const metadata: Metadata = {
@@ -61,7 +60,6 @@ export default async function HomePage() {
       <StatsSection stats={stats} />
       <FeaturesSection />
       <CoursesSection courses={featuredCourses} />
-      <HowItWorks />
       <CTASection />
     </div>
   )
