@@ -31,13 +31,12 @@ function RegisterForm() {
     }
   }, [roleParam])
 
-  // If already authenticated, redirect
-  useEffect(() => {
-    if (status === 'authenticated' && session?.user) {
-      const userRole = session.user.role as string
-      router.push(`/${userRole.toLowerCase()}`)
-    }
-  }, [status, session, router])
+  // If already authenticated, redirect to home
+useEffect(() => {
+  if (status === 'authenticated' && session?.user) {
+    router.push('/')
+  }
+}, [status, session, router])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
