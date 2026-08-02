@@ -1,76 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { validatePasswordStrength } from '@/lib/password-utils';
+import { checkPasswordResetCode } from '@/lib/tokens';
 import bcrypt from 'bcryptjs';
 
 /**
- * GET /api/auth/reset-password?token=TOKEN&email=EMAIL
- * Validate reset token
- */
-export async function GET(req: NextRequest) {
-  try {
-    const searchParams = req.nextUrl.searchParams;
-    const token = searchParams.get('token');
-    const email = searchParams.get('email');
-
-    if (!token || !email) {
-      return NextResponse.json(
-        { success: false, error: 'Token and email are required' },
-        { status: 400 }
-      );
-    }
-
-    const normalizedEmail = email.toLowerCase().trim();
-
-    // Find and validate token
-    const resetToken = await prisma.passwordResetToken.findUnique({
-      where: { token },
-    });
-
-    if (!resetToken) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid reset token' },
-        { status: 400 }
-      );
-    }
-
-    if (resetToken.email !== normalizedEmail) {
-      return NextResponse.json(
-        { success: false, error: 'Email does not match token' },
-        { status: 400 }
-      );
-    }
-
-    if (new Date() > resetToken.expires) {
-      return NextResponse.json(
-        { success: false, error: 'Reset token has expired' },
-        { status: 400 }
-      );
-    }
-
-    return NextResponse.json({
-      success: true,
-      message: 'Token is valid',
-      email: normalizedEmail,
-    });
-  } catch (error) {
-    console.error('Token validation error:', error);
-    return NextResponse.json(
-      { success: false, error: 'An error occurred' },
-      { status: 500 }
-    );
-  }
-}
-
-/**
  * POST /api/auth/reset-password
- * Reset password with valid token
+ * Reset password using a 6-digit OTP code sent to the user's email
  */
 export async function POST(req: NextRequest) {
   try {
-    const { token, email, password, confirmPassword } = await req.json();
+    const { email, code, password, confirmPassword } = await req.json();
 
-    if (!token || !email || !password || !confirmPassword) {
+    if (!email || !code || !password || !confirmPassword) {
       return NextResponse.json(
         { success: false, error: 'All fields are required' },
         { status: 400 }
@@ -93,30 +35,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const normalizedEmail = email.toLowerCase().trim();
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const normalizedCode = String(code).trim();
 
-    // Find and validate token
-    const resetToken = await prisma.passwordResetToken.findUnique({
-      where: { token },
-    });
-
-    if (!resetToken) {
+    // Verify the OTP code (tracks attempts, checks expiry)
+    const codeCheck = await checkPasswordResetCode(normalizedEmail, normalizedCode);
+    if (!codeCheck.success) {
       return NextResponse.json(
-        { success: false, error: 'Invalid reset token' },
-        { status: 400 }
-      );
-    }
-
-    if (resetToken.email !== normalizedEmail) {
-      return NextResponse.json(
-        { success: false, error: 'Email does not match token' },
-        { status: 400 }
-      );
-    }
-
-    if (new Date() > resetToken.expires) {
-      return NextResponse.json(
-        { success: false, error: 'Reset token has expired' },
+        { success: false, error: codeCheck.error || 'Invalid code' },
         { status: 400 }
       );
     }
@@ -142,7 +68,7 @@ export async function POST(req: NextRequest) {
       data: { password: hashedPassword },
     });
 
-    // Delete all reset tokens for this user
+    // Delete all reset codes for this user (consume)
     await prisma.passwordResetToken.deleteMany({
       where: { email: normalizedEmail },
     });

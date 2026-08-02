@@ -27,11 +27,11 @@ function LoginForm() {
   }, [searchParams])
 
   // If already authenticated, redirect to home
-useEffect(() => {
-  if (status === 'authenticated' && session?.user) {
-    router.push('/')
-  }
-}, [status, session, router])
+  useEffect(() => {
+    if (status === 'authenticated' && session?.user) {
+      router.push('/')
+    }
+  }, [status, session, router])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -55,9 +55,9 @@ useEffect(() => {
       if (result?.error) {
         setError(result.error)
       } else {
-          router.push('/')
-          router.refresh()
-        }
+        router.push('/')
+        router.refresh()
+      }
     } catch (err: any) {
       setError(err.message || 'Login failed')
     } finally {

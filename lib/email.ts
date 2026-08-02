@@ -39,24 +39,22 @@ async function getTransporter() {
 }
 
 /**
- * Send email verification with token
+ * Send email verification OTP code
  */
 export async function sendVerificationEmail(
   email: string,
   name: string,
-  token: string
+  code: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const verifyUrl = `${process.env.NEXTAUTH_URL}/api/auth/verify-email?token=${token}`;
-
     const transporter = await getTransporter();
 
     if (transporter.emails) {
       const result = await transporter.emails.send({
         from: process.env.RESEND_FROM_EMAIL || 'noreply@eduplat.com',
         to: email,
-        subject: 'Verify your Eduplat email address',
-        html: getVerificationEmailHtml(verifyUrl, name),
+        subject: `${code} is your Eduplat verification code`,
+        html: getVerificationEmailHtml(code, name),
       });
 
       if (result.error) {
@@ -70,15 +68,15 @@ export async function sendVerificationEmail(
     const info = await transporter.sendMail({
       from: 'noreply@eduplat.com',
       to: email,
-      subject: 'Verify your Eduplat email address',
-      html: getVerificationEmailHtml(verifyUrl, name),
+      subject: `${code} is your Eduplat verification code`,
+      html: getVerificationEmailHtml(code, name),
     });
 
     if (process.env.NODE_ENV !== 'production') {
       const previewUrl = nodemailer.getTestMessageUrl(info);
       console.log('\n✉️  Verification email sent!');
       console.log('Preview URL (development):', previewUrl);
-      console.log('(This URL will be valid for 24 hours)\n');
+      console.log('(Code expires in 10 minutes)\n');
     }
 
     return { success: true };
@@ -92,15 +90,13 @@ export async function sendVerificationEmail(
 }
 
 /**
- * Send password reset email with token
+ * Send password reset OTP code
  */
 export async function sendPasswordResetEmail(
   email: string,
-  token: string
+  code: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const resetUrl = `${process.env.NEXTAUTH_URL}/reset-password?token=${token}&email=${encodeURIComponent(email)}`;
-
     const transporter = await getTransporter();
 
     // Production with Resend
@@ -108,8 +104,8 @@ export async function sendPasswordResetEmail(
       const result = await transporter.emails.send({
         from: process.env.RESEND_FROM_EMAIL || 'noreply@eduplat.com',
         to: email,
-        subject: 'Reset Your Eduplat Password',
-        html: getEmailHtml(resetUrl),
+        subject: `${code} is your Eduplat password reset code`,
+        html: getPasswordResetEmailHtml(code),
       });
 
       if (result.error) {
@@ -124,8 +120,8 @@ export async function sendPasswordResetEmail(
     const info = await transporter.sendMail({
       from: 'noreply@eduplat.com',
       to: email,
-      subject: 'Reset Your Eduplat Password',
-      html: getEmailHtml(resetUrl),
+      subject: `${code} is your Eduplat password reset code`,
+      html: getPasswordResetEmailHtml(code),
     });
 
     // Log preview URL for Ethereal (development only)
@@ -133,7 +129,7 @@ export async function sendPasswordResetEmail(
       const previewUrl = nodemailer.getTestMessageUrl(info);
       console.log('\n✉️  Password reset email sent!');
       console.log('Preview URL (development):', previewUrl);
-      console.log('(This URL will be valid for 24 hours)\n');
+      console.log('(Code expires in 10 minutes)\n');
     }
 
     return { success: true };
@@ -147,41 +143,108 @@ export async function sendPasswordResetEmail(
 }
 
 /**
- * Generate email HTML template
+ * Send a welcome email (used for new Google/GitHub OAuth sign-ups)
  */
-function getEmailHtml(resetUrl: string): string {
+export async function sendWelcomeEmail(
+  email: string,
+  name: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const transporter = await getTransporter();
+    const html = getWelcomeEmailHtml(name);
+
+    if (transporter.emails) {
+      const result = await transporter.emails.send({
+        from: process.env.RESEND_FROM_EMAIL || 'noreply@eduplat.com',
+        to: email,
+        subject: 'Welcome to Eduplat!',
+        html,
+      });
+
+      if (result.error) {
+        console.error('Resend error:', result.error);
+        return { success: false, error: 'Failed to send welcome email' };
+      }
+
+      return { success: true };
+    }
+
+    const info = await transporter.sendMail({
+      from: 'noreply@eduplat.com',
+      to: email,
+      subject: 'Welcome to Eduplat!',
+      html,
+    });
+
+    if (process.env.NODE_ENV !== 'production') {
+      const previewUrl = nodemailer.getTestMessageUrl(info);
+      console.log('\n✉️  Welcome email sent!');
+      console.log('Preview URL (development):', previewUrl);
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('Welcome email error:', error);
+    return {
+      success: false,
+      error: 'An error occurred while sending the welcome email',
+    };
+  }
+}
+
+/**
+ * Generate password reset OTP email HTML
+ */
+function getPasswordResetEmailHtml(code: string): string {
   return `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
       <h2 style="color: #3B82F6;">Password Reset Request</h2>
       <p>You requested to reset your password for your Eduplat account.</p>
-      <p>Click the link below to reset your password:</p>
-      <a href="${resetUrl}" style="display: inline-block; background-color: #3B82F6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 20px 0;">
-        Reset Password
-      </a>
-      <p style="color: #666; font-size: 14px;">Or copy and paste this link in your browser:</p>
-      <p style="color: #666; font-size: 12px; word-break: break-all;">${resetUrl}</p>
-      <p style="color: #666; font-size: 14px;">This link expires in 1 hour.</p>
+      <p>Enter this code to reset your password:</p>
+      <div style="text-align: center; margin: 30px 0;">
+        <span style="display: inline-block; background-color: #F3F4F6; color: #111827; font-size: 32px; font-weight: bold; letter-spacing: 8px; padding: 16px 24px; border-radius: 8px;">
+          ${code}
+        </span>
+      </div>
+      <p style="color: #666; font-size: 14px;">This code expires in 10 minutes.</p>
       <p style="color: #666; font-size: 14px;">If you didn't request this, please ignore this email.</p>
       <hr style="margin: 30px 0; border: none; border-top: 1px solid #e5e7eb;" />
-      <p style="color: #999; font-size: 12px; text-align: center;">© 2024 Eduplat. All rights reserved.</p>
+      <p style="color: #999; font-size: 12px; text-align: center;">© 2026 Eduplat. All rights reserved.</p>
     </div>
   `;
 }
 
-function getVerificationEmailHtml(verifyUrl: string, name: string): string {
+function getVerificationEmailHtml(code: string, name: string): string {
   return `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
       <h2 style="color: #3B82F6;">Welcome to Eduplat, ${name}!</h2>
-      <p>Please verify your email address to get started.</p>
-      <p>
-        <a href="${verifyUrl}" style="display: inline-block; background-color: #3B82F6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 20px 0;">
-          Verify Email Address
-        </a>
-      </p>
-      <p style="color: #666; font-size: 14px;">This link expires in 24 hours.</p>
+      <p>Enter this code to verify your email address and get started:</p>
+      <div style="text-align: center; margin: 30px 0;">
+        <span style="display: inline-block; background-color: #F3F4F6; color: #111827; font-size: 32px; font-weight: bold; letter-spacing: 8px; padding: 16px 24px; border-radius: 8px;">
+          ${code}
+        </span>
+      </div>
+      <p style="color: #666; font-size: 14px;">This code expires in 10 minutes.</p>
       <p style="color: #666; font-size: 14px;">If you didn't create an account, ignore this email.</p>
       <hr style="margin: 30px 0; border: none; border-top: 1px solid #e5e7eb;" />
-      <p style="color: #999; font-size: 12px; text-align: center;">© 2024 Eduplat. All rights reserved.</p>
+      <p style="color: #999; font-size: 12px; text-align: center;">© 2026 Eduplat. All rights reserved.</p>
+    </div>
+  `;
+}
+
+function getWelcomeEmailHtml(name: string): string {
+  return `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2 style="color: #3B82F6;">Welcome to Eduplat, ${name}!</h2>
+      <p>Your account is all set up and ready to go.</p>
+      <p>Browse our course catalog, start learning, and track your progress right from your dashboard.</p>
+      <p style="margin-top: 24px;">
+        <a href="${process.env.NEXTAUTH_URL}/courses" style="display: inline-block; background-color: #3B82F6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px;">
+          Browse Courses
+        </a>
+      </p>
+      <hr style="margin: 30px 0; border: none; border-top: 1px solid #e5e7eb;" />
+      <p style="color: #999; font-size: 12px; text-align: center;">© 2026 Eduplat. All rights reserved.</p>
     </div>
   `;
 }

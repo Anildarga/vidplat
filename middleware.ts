@@ -45,7 +45,6 @@ export const config = {
     '/instructor/:path*',
     '/admin/:path*',
     '/learn/:path*',
-    '/verify-email',
     '/onboarding/:path*',
   ],
 };

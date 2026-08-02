@@ -1,40 +1,53 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { validateVerificationToken } from '@/lib/tokens';
+import { verifyAndConsumeVerificationToken } from '@/lib/tokens';
+import { sendWelcomeEmail } from '@/lib/email';
 
-export async function GET(req: NextRequest) {
-  const token = req.nextUrl.searchParams.get('token');
+/**
+ * POST /api/auth/verify-email
+ * Verify a 6-digit OTP code sent to the user's email
+ */
+export async function POST(req: NextRequest) {
+  try {
+    const { email, code } = await req.json();
 
-  if (!token) {
-    return NextResponse.redirect(
-      new URL('/verify-email?error=missing', req.url)
-    );
-  }
-
-  const result = await validateVerificationToken(token);
-
-  if (!result.valid) {
-    const error = result.expired ? 'expired' : 'invalid';
-    return NextResponse.redirect(
-      new URL(`/verify-email?error=${error}`, req.url)
-    );
-  }
-
-  // Update user as verified (both fields)
-  await prisma.user.update({
-    where: { email: result.email },
-    data: {
-      emailVerified: new Date(),
-      isEmailVerified: true,
+    if (!email || !code) {
+      return NextResponse.json(
+        { success: false, error: 'Email and code are required' },
+        { status: 400 }
+      );
     }
-  });
 
-  // Delete all tokens for this email
-  await prisma.verificationToken.deleteMany({
-    where: { identifier: result.email }
-  });
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const normalizedCode = String(code).trim();
 
-  return NextResponse.redirect(
-    new URL('/verify-email?success=true', req.url)
-  );
+    const result = await verifyAndConsumeVerificationToken(normalizedEmail, normalizedCode);
+
+    if (!result.success) {
+      return NextResponse.json(
+        { success: false, error: result.error || 'Invalid code' },
+        { status: 400 }
+      );
+    }
+
+    // Send welcome email now that the account is verified
+    const user = await prisma.user.findUnique({
+      where: { email: normalizedEmail },
+      select: { name: true },
+    });
+    sendWelcomeEmail(normalizedEmail, user?.name || 'there').catch((err) =>
+      console.error('Failed to send welcome email:', err)
+    );
+
+    return NextResponse.json({
+      success: true,
+      message: 'Email verified successfully!',
+    });
+  } catch (error) {
+    console.error('[verify-email POST]', error instanceof Error ? error.message : error);
+    return NextResponse.json(
+      { success: false, error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
 }

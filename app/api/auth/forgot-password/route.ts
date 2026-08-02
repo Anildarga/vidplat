@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     if (!user) {
       return NextResponse.json({
         success: true,
-        message: 'If an account exists with this email, a password reset link will be sent',
+        message: 'If an account exists with this email, a password reset code will be sent',
       });
     }
 
@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: 'If an account exists with this email, a password reset link will be sent',
+      message: 'If an account exists with this email, a password reset code will be sent',
     });
   } catch (error) {
     console.error('Forgot password error:', error);

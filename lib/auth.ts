@@ -160,6 +160,13 @@ export const authOptions: NextAuthOptions = {
 
         user.id = newUser.id;
         (user as { role?: string }).role = newUser.role;
+
+        // New OAuth sign-up — send welcome email (fire and forget)
+        import('./email').then(({ sendWelcomeEmail }) => {
+          sendWelcomeEmail(email, profileName || 'there').catch((err) =>
+            console.error('Failed to send welcome email:', err)
+          );
+        });
       }
       return true;
     },

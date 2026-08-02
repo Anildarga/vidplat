@@ -5,14 +5,16 @@ import { sendVerificationEmail } from '@/lib/email';
 
 export async function POST(req: NextRequest) {
   try {
-    const { email } = await req.json();
+    const { email: rawEmail } = await req.json();
 
-    if (!email) {
+    if (!rawEmail) {
       return NextResponse.json(
         { success: false, error: 'Email is required' },
         { status: 400 }
       );
     }
+
+    const email = String(rawEmail).trim().toLowerCase();
 
     // Check if user exists and is not already verified
     const user = await prisma.user.findUnique({
@@ -46,26 +48,26 @@ export async function POST(req: NextRequest) {
     });
     if (recentToken) {
       return NextResponse.json(
-        { success: false, error: 'Please wait 2 minutes before requesting another email' },
+        { success: false, error: 'Please wait 2 minutes before requesting another code' },
         { status: 429 }
       );
     }
 
-    // Generate new verification token and send email
+    // Generate new verification code and send email
     const verificationToken = await createVerificationToken(email);
     const emailResult = await sendVerificationEmail(email, user.name || 'User', verificationToken);
 
     if (!emailResult.success) {
       console.error('Failed to send verification email:', emailResult.error);
       return NextResponse.json(
-        { success: false, error: 'Failed to send verification email. Please try again later.' },
+        { success: false, error: 'Failed to send verification code. Please try again later.' },
         { status: 500 }
       );
     }
 
     return NextResponse.json({
       success: true,
-      message: 'Verification email sent successfully. Please check your email.'
+      message: 'A new verification code has been sent to your email.'
     });
   } catch (error) {
     console.error('[resend-verification]', error instanceof Error ? error.message : error);
