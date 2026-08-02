@@ -26,13 +26,12 @@ function LoginForm() {
     }
   }, [searchParams])
 
-  // If already authenticated, redirect
-  useEffect(() => {
-    if (status === 'authenticated' && session?.user) {
-      const role = session.user.role as string
-      router.push(`/${role.toLowerCase()}`)
-    }
-  }, [status, session, router])
+  // If already authenticated, redirect to home
+useEffect(() => {
+  if (status === 'authenticated' && session?.user) {
+    router.push('/')
+  }
+}, [status, session, router])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -56,8 +55,9 @@ function LoginForm() {
       if (result?.error) {
         setError(result.error)
       } else {
-        router.push('/')
-      }
+          router.push('/')
+          router.refresh()
+        }
     } catch (err: any) {
       setError(err.message || 'Login failed')
     } finally {
