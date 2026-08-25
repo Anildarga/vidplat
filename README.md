@@ -84,9 +84,10 @@ FRONTEND_URL="http://localhost:3000"
 NEXTAUTH_SECRET="your-nextauth-secret"
 NEXTAUTH_URL="http://localhost:3000"
 
-# Email Service (Resend)
-RESEND_API_KEY="your-resend-api-key"
-RESEND_FROM_EMAIL="onboarding@resend.dev"
+# Email Service (Brevo)
+BREVO_API_KEY="your-brevo-api-key"
+BREVO_FROM_EMAIL="noreply@eduplat.com"
+BREVO_FROM_NAME="Eduplat"
 ```
 
 **Important**: Replace all placeholder values with your actual credentials. The existing `.env` file already contains sample values that you must update.

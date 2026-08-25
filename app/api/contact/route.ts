@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { Resend } from 'resend'
-
-const resend = new Resend(process.env.RESEND_API_KEY)
+import { sendViaBrevo } from '@/lib/email'
 
 export async function POST(req: NextRequest) {
   try {
@@ -16,8 +14,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Send email to admin
-    const emailOptions = {
-      from: process.env.RESEND_FROM_EMAIL || 'noreply@eduplat.com',
+    const result = await sendViaBrevo({
       to: 'anildarga3777@gmail.com',
       subject: `Eduplat Contact Form Submission from ${name}`,
       html: `
@@ -36,13 +33,10 @@ export async function POST(req: NextRequest) {
         </div>
       `,
       replyTo: email,
-    };
-    
-    // Type assertion to handle Resend type definition inconsistencies
-    const { error } = await resend.emails.send(emailOptions as any)
+    })
 
-    if (error) {
-      console.error('[contact] Failed to send email:', error)
+    if (!result.success) {
+      console.error('[contact] Failed to send email:', result.error)
       return NextResponse.json(
         { success: false, error: 'Failed to send message. Please try again later.' },
         { status: 500 }

@@ -1,21 +1,71 @@
-import { Resend } from 'resend';
 import nodemailer from 'nodemailer';
 
 let transporter: any = null;
 
+type BrevoSendResult = { success: boolean; error?: string };
+
+/**
+ * Send an email via the Brevo (Sendinblue) transactional email REST API.
+ * Docs: https://developers.brevo.com/reference/sendtransacemail
+ * No SDK dependency needed — Brevo's API is a plain JSON POST.
+ */
+export async function sendViaBrevo(params: {
+  to: string;
+  subject: string;
+  html: string;
+  replyTo?: string;
+}): Promise<BrevoSendResult> {
+  const apiKey = process.env.BREVO_API_KEY;
+  if (!apiKey) {
+    return { success: false, error: 'BREVO_API_KEY is not set' };
+  }
+
+  const fromEmail = process.env.BREVO_FROM_EMAIL || 'noreply@eduplat.com';
+  const fromName = process.env.BREVO_FROM_NAME || 'Eduplat';
+
+  try {
+    const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        'api-key': apiKey,
+      },
+      body: JSON.stringify({
+        sender: { email: fromEmail, name: fromName },
+        to: [{ email: params.to }],
+        subject: params.subject,
+        htmlContent: params.html,
+        ...(params.replyTo ? { replyTo: { email: params.replyTo } } : {}),
+      }),
+    });
+
+    if (!res.ok) {
+      const errBody = await res.text();
+      console.error('Brevo error:', res.status, errBody);
+      return { success: false, error: 'Failed to send email via Brevo' };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('Brevo request failed:', error);
+    return { success: false, error: 'An error occurred while sending the email' };
+  }
+}
+
 /**
  * Initialize email transporter
  * Uses Ethereal Email for development testing (no API keys needed)
- * Uses Resend for production if API key is provided
+ * Uses Brevo for production if an API key is provided
  */
 async function getTransporter() {
   if (transporter) return transporter;
 
-  // Production: Use Resend if API key is provided
-  if (process.env.RESEND_API_KEY && process.env.NODE_ENV === 'production') {
-    const { Resend } = await import('resend');
-    const resend = new Resend(process.env.RESEND_API_KEY);
-    transporter = resend;
+  // Production: Use Brevo if API key is provided
+  if (process.env.BREVO_API_KEY && process.env.NODE_ENV === 'production') {
+    // Mark as a Brevo-backed transporter; `.brevo` flag lets callers
+    // distinguish this from the Ethereal/nodemailer fallback below.
+    transporter = { brevo: true };
     return transporter;
   }
 
@@ -49,17 +99,15 @@ export async function sendVerificationEmail(
   try {
     const transporter = await getTransporter();
 
-    if (transporter.emails) {
-      const result = await transporter.emails.send({
-        from: process.env.RESEND_FROM_EMAIL || 'noreply@eduplat.com',
+    if (transporter.brevo) {
+      const result = await sendViaBrevo({
         to: email,
         subject: `${code} is your Eduplat verification code`,
         html: getVerificationEmailHtml(code, name),
       });
 
-      if (result.error) {
-        console.error('Resend error:', result.error);
-        return { success: false, error: 'Failed to send verification email' };
+      if (!result.success) {
+        return { success: false, error: result.error || 'Failed to send verification email' };
       }
 
       return { success: true };
@@ -99,18 +147,16 @@ export async function sendPasswordResetEmail(
   try {
     const transporter = await getTransporter();
 
-    // Production with Resend
-    if (transporter.emails) {
-      const result = await transporter.emails.send({
-        from: process.env.RESEND_FROM_EMAIL || 'noreply@eduplat.com',
+    // Production with Brevo
+    if (transporter.brevo) {
+      const result = await sendViaBrevo({
         to: email,
         subject: `${code} is your Eduplat password reset code`,
         html: getPasswordResetEmailHtml(code),
       });
 
-      if (result.error) {
-        console.error('Resend error:', result.error);
-        return { success: false, error: 'Failed to send reset email' };
+      if (!result.success) {
+        return { success: false, error: result.error || 'Failed to send reset email' };
       }
 
       return { success: true };
@@ -153,17 +199,15 @@ export async function sendWelcomeEmail(
     const transporter = await getTransporter();
     const html = getWelcomeEmailHtml(name);
 
-    if (transporter.emails) {
-      const result = await transporter.emails.send({
-        from: process.env.RESEND_FROM_EMAIL || 'noreply@eduplat.com',
+    if (transporter.brevo) {
+      const result = await sendViaBrevo({
         to: email,
         subject: 'Welcome to Eduplat!',
         html,
       });
 
-      if (result.error) {
-        console.error('Resend error:', result.error);
-        return { success: false, error: 'Failed to send welcome email' };
+      if (!result.success) {
+        return { success: false, error: result.error || 'Failed to send welcome email' };
       }
 
       return { success: true };
