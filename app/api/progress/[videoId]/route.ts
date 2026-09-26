@@ -29,8 +29,19 @@ async function getAccessibleVideo(
 
   if (!video) return null;
 
-  const isInstructorOrAdmin = role === 'INSTRUCTOR' || role === 'ADMIN';
-  if (isInstructorOrAdmin) return { video };
+  const course = await prisma.course.findUnique({
+    where: { id: video.courseId },
+    select: { instructorId: true },
+  });
+
+  if (!course) return null;
+
+  const isAdmin = role === 'ADMIN';
+  const isCourseOwner = role === 'INSTRUCTOR' && course.instructorId === userId;
+
+  if (isAdmin || isCourseOwner) {
+    return { video };
+  }
 
   const enrollment = await prisma.enrollment.findUnique({
     where: {
@@ -78,7 +89,6 @@ async function getAccessibleVideo(
 
   return { video };
 }
-
 // GET — fetch saved progress for a video
 export async function GET(
   request: NextRequest,
