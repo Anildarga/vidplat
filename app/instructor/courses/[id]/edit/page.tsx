@@ -97,7 +97,7 @@ export default function EditCoursePage() {
     fetchCourse();
   }, [courseId]);
 
-  const handleSave = async () => {
+  const handleSave = async (publishOverride?: boolean) => {
     if (!title.trim()) {
       setError('Title is required');
       return;
@@ -118,7 +118,7 @@ export default function EditCoursePage() {
           title: title.trim(),
           description: description.trim() || null,
           thumbnail: thumbnail.trim() || null,
-          isPublished,
+          isPublished: publishOverride ?? isPublished,
         }),
       });
 
@@ -128,7 +128,11 @@ export default function EditCoursePage() {
         throw new Error(data.error || 'Failed to save course');
       }
 
-      setSuccess('Course saved successfully!');
+      setSuccess(
+        (publishOverride ?? isPublished) && !adminApproved
+          ? 'Course published and sent for admin approval.'
+          : 'Course saved successfully!'
+      );
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -327,7 +331,7 @@ export default function EditCoursePage() {
                 type="button"
                 onClick={() => {
                   setIsPublished(true);
-                  setTimeout(() => handleSave(), 0);
+                  handleSave(true);
                 }}
                 disabled={isSaving}
                 className="px-6 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 transition"
