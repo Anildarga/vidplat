@@ -22,18 +22,11 @@ export async function POST(req: NextRequest) {
       select: { id: true, name: true, email: true, isEmailVerified: true }
     });
 
-    if (!user) {
-      return NextResponse.json(
-        { success: false, error: 'No account found with this email address' },
-        { status: 404 }
-      );
-    }
-
-    if (user.isEmailVerified) {
-      return NextResponse.json(
-        { success: false, error: 'Email is already verified' },
-        { status: 400 }
-      );
+    if (!user || user.isEmailVerified) {
+      return NextResponse.json({
+        success: true,
+        message: 'A verification code will be sent if this account requires email verification.',
+      });
     }
 
     // Rate limit: check if a token was created in the last 2 minutes
@@ -47,10 +40,10 @@ export async function POST(req: NextRequest) {
       }
     });
     if (recentToken) {
-      return NextResponse.json(
-        { success: false, error: 'Please wait 2 minutes before requesting another code' },
-        { status: 429 }
-      );
+      return NextResponse.json({
+        success: true,
+        message: 'A verification code will be sent if this account requires email verification.',
+      });
     }
 
     // Generate new verification code and send email
