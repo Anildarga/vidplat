@@ -30,6 +30,8 @@ export async function GET(
           },
         },
         quizzes: true,
+        courseNotes: { orderBy: { order: 'asc' } },
+        documents: { orderBy: { order: 'asc' } },
         _count: {
           select: {
             enrollments: true,
@@ -46,8 +48,8 @@ export async function GET(
       );
     }
 
-    // If course is not published, only allow access to the course instructor or admin
-    if (!course.isPublished) {
+    // Students only see courses after author publishing + admin approval.
+    if (!course.isPublished || !course.adminApproved) {
       if (!session) {
         return NextResponse.json(
           { success: false, error: 'Course not found' },
@@ -104,6 +106,8 @@ export async function GET(
             passingScore: quiz.passingScore,
             type: quiz.type,
           })),
+          courseNotes: course.courseNotes.map(({ content: _content, ...note }) => note),
+          documents: course.documents.map(({ url: _url, ...document }) => document),
         };
 
     // Fetch reviews for this course separately
