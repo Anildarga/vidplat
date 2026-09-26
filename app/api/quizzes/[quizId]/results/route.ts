@@ -67,7 +67,7 @@ export async function GET(
         },
       });
 
-      const totalPossibleScore = quiz.questions.length;
+      const totalPossibleScore = quiz.questions.reduce((sum, question) => sum + Math.max(1, question.marks ?? 1), 0);
 
       const attemptsWithDetails = attempts.map((attempt) => ({
         id: attempt.id,
@@ -75,8 +75,8 @@ export async function GET(
         userName: attempt.user.name || 'Anonymous',
         userEmail: attempt.user.email,
         score: attempt.score,
-        totalScore: totalPossibleScore,
-        percentage: totalPossibleScore > 0 ? Math.round((attempt.score / totalPossibleScore) * 100) : 0,
+        totalScore: attempt.totalScore,
+        percentage: attempt.totalScore > 0 ? Math.round((attempt.score / attempt.totalScore) * 100) : 0,
         completedAt: attempt.completedAt,
       }));
 
@@ -147,7 +147,9 @@ export async function GET(
     });
 
     const totalQuestions = quiz.questions.length;
-    const percentage = totalQuestions > 0 ? Math.round((userAttempt.score / totalQuestions) * 100) : 0;
+    const percentage = userAttempt.totalScore > 0
+      ? Math.round((userAttempt.score / userAttempt.totalScore) * 100)
+      : 0;
     const passingScore = quiz.passingScore ?? 60;
     const passed = percentage >= passingScore;
 
@@ -172,7 +174,7 @@ export async function GET(
       data: {
         id: userAttempt.id,
         score: userAttempt.score,
-        totalScore: totalQuestions,
+        totalScore: userAttempt.totalScore,
         percentage,
         passed,
         completedAt: userAttempt.completedAt,
