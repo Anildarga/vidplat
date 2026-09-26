@@ -11,9 +11,7 @@ interface Review {
   comment: string | null
   createdAt: string
   user: {
-    id: string
     name: string | null
-    image: string | null
   }
 }
 
@@ -130,17 +128,9 @@ export default function ReviewsSection({
                 <div className="flex justify-between items-start mb-3">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center">
-                      {review.user.image ? (
-                        <img
-                          src={review.user.image}
-                          alt={review.user.name || 'User'}
-                          className="w-10 h-10 rounded-full"
-                        />
-                      ) : (
-                        <span className="text-gray-600 dark:text-gray-300 font-medium">
-                          {review.user.name?.charAt(0) || 'U'}
-                        </span>
-                      )}
+                      <span className="text-gray-600 dark:text-gray-300 font-medium">
+                        {review.user.name?.charAt(0) || 'U'}
+                      </span>
                     </div>
                     <div>
                       <h4 className="font-medium text-gray-900 dark:text-white">
