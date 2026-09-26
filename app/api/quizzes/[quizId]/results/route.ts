@@ -44,7 +44,7 @@ export async function GET(
       );
     }
 
-    const isInstructor = quiz.course.instructorId === session.user.id;
+    const isInstructor = session.user.role === 'INSTRUCTOR' && quiz.course.instructorId === session.user.id;
     const isAdmin = session.user.role === 'ADMIN';
 
     // If instructor or admin, return all attempts summary
