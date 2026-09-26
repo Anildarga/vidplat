@@ -93,6 +93,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const requestedIsFree = isFree !== undefined ? Boolean(isFree) : undefined;
+    if (requestedIsFree === true && priceValue > 0) {
+      return NextResponse.json(
+        { success: false, error: 'A free course must have a zero price' },
+        { status: 400 }
+      );
+    }
+
     const course = await prisma.course.create({
       data: {
         title: title.trim(),
@@ -102,7 +110,7 @@ export async function POST(req: NextRequest) {
         isPublished: false,
         price: priceValue,
         currency: currency?.trim() || 'USD',
-        isFree: isFree !== undefined ? Boolean(isFree) : priceValue === 0,
+        isFree: priceValue === 0,
       },
       include: {
         instructor: {
