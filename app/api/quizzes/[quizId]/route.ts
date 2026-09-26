@@ -48,14 +48,19 @@ export async function GET(
     // Check if user can access this quiz
     const isInstructor = quiz.course.instructorId === session.user.id;
     const isAdmin = session.user.role === 'ADMIN';
-    const isEnrolled = await prisma.enrollment.findFirst({
+    const enrollment = await prisma.enrollment.findUnique({
       where: {
-        userId: session.user.id,
-        courseId: quiz.courseId,
+        userId_courseId: {
+          userId: session.user.id,
+          courseId: quiz.courseId,
+        },
       },
+      select: { paymentStatus: true },
     });
 
-    if (!isInstructor && !isAdmin && !isEnrolled) {
+    const hasCompletedEnrollment = enrollment?.paymentStatus === 'COMPLETED';
+
+    if (!isInstructor && !isAdmin && !hasCompletedEnrollment) {
       return NextResponse.json(
         { success: false, error: 'Forbidden: You must be enrolled in this course to view this quiz' },
         { status: 403 }
