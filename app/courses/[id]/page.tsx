@@ -86,7 +86,7 @@ export default async function CourseDetailPage({
 
   const canManageBeforeApproval =
     session?.user?.role === 'ADMIN' ||
-    session?.user?.id === course.instructorId;
+    (session?.user?.role === 'INSTRUCTOR' && session?.user?.id === course.instructorId);
 
   if ((!course.isPublished || !course.adminApproved) && !canManageBeforeApproval) {
     notFound();
@@ -109,7 +109,9 @@ export default async function CourseDetailPage({
   
   const courseWithDetails = course as any;
 
-  const isOwner = session?.user?.id === courseWithDetails.instructorId;
+  const isOwner =
+    session?.user?.role === 'INSTRUCTOR' &&
+    session?.user?.id === courseWithDetails.instructorId;
   const isAdmin = session?.user?.role === 'ADMIN';
   const canEdit = isOwner || isAdmin;
 
