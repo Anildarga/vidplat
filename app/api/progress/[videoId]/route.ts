@@ -199,9 +199,6 @@ export async function POST(
       Math.floor(duration)
     );
 
-    // Completion is decided exclusively by the server.
-    const isCompleted = normalizedWatchedSeconds >= duration * 0.9;
-
     const existingProgress = await prisma.videoProgress.findUnique({
       where: {
         userId_videoId: {
@@ -233,6 +230,10 @@ export async function POST(
       previousWatchedSeconds,
       Math.min(normalizedWatchedSeconds, maxAllowedWatchedSeconds)
     );
+
+    // Completion is decided from the server-approved progress, never the raw
+    // client value.
+    const isCompleted = finalWatchedSeconds >= duration * 0.9;
     const finalCompleted = Boolean(existingProgress?.completed) || isCompleted;
 
     const progress = await prisma.videoProgress.upsert({
