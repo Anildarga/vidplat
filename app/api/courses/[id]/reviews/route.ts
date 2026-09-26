@@ -15,7 +15,7 @@ export async function GET(
     // Check if course exists
     const course = await prisma.course.findUnique({
       where: { id },
-      select: { id: true, isPublished: true, instructorId: true },
+      select: { id: true, isPublished: true, adminApproved: true, instructorId: true },
     });
 
     if (!course) {
@@ -26,7 +26,7 @@ export async function GET(
     }
 
     // If course is not published, only allow access to the course instructor or admin
-    if (!course.isPublished) {
+    if (!course.isPublished || !course.adminApproved) {
       if (!session) {
         return NextResponse.json(
           { success: false, error: 'Unauthorized' },
