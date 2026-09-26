@@ -183,6 +183,43 @@ export async function PATCH(
     const { title, description, thumbnail, isPublished, price, currency, isFree } = await req.json();
 
     const updateData: Record<string, unknown> = {};
+    let nextPrice = existingCourse.price;
+    let nextIsFree = existingCourse.isFree;
+
+    if (price !== undefined) {
+      const priceValue = normalizeMoney(price);
+      if (priceValue === null) {
+        return NextResponse.json(
+          { success: false, error: 'Price must be a non-negative number' },
+          { status: 400 }
+        );
+      }
+      nextPrice = priceValue;
+    }
+
+    if (isFree !== undefined) {
+      const requestedIsFree = Boolean(isFree);
+      if (requestedIsFree && nextPrice > 0) {
+        return NextResponse.json(
+          { success: false, error: 'A free course must have a zero price' },
+          { status: 400 }
+        );
+      }
+      if (!requestedIsFree && nextPrice === 0) {
+        return NextResponse.json(
+          { success: false, error: 'A zero-price course must be free' },
+          { status: 400 }
+        );
+      }
+      nextIsFree = requestedIsFree;
+    }
+
+    if (nextPrice === 0) {
+      nextIsFree = true;
+    }
+
+    updateData.price = nextPrice;
+    updateData.isFree = nextIsFree;
 
     if (title !== undefined) {
       if (typeof title !== 'string' || title.trim() === '') {
@@ -206,28 +243,8 @@ export async function PATCH(
       updateData.isPublished = Boolean(isPublished);
     }
 
-    if (price !== undefined) {
-      const priceValue = normalizeMoney(price);
-      if (priceValue === null) {
-        return NextResponse.json(
-          { success: false, error: 'Price cannot be negative' },
-          { status: 400 }
-        );
-      }
-      updateData.price = priceValue;
-      
-      // Auto-set isFree if price is 0
-      if (priceValue === 0) {
-        updateData.isFree = true;
-      }
-    }
-
     if (currency !== undefined) {
       updateData.currency = currency.trim();
-    }
-
-    if (isFree !== undefined) {
-      updateData.isFree = Boolean(isFree);
     }
 
     const updatedCourse = await prisma.course.update({
