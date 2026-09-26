@@ -6,6 +6,10 @@ export default withAuth(
     const { token } = req.nextauth;
     const { pathname } = req.nextUrl;
 
+    if (!token || token.isActive === false) {
+      return NextResponse.redirect(new URL('/login', req.url));
+    }
+
     // Onboarding route: must be authenticated but not yet completed onboarding
     if (pathname.startsWith('/onboarding')) {
       if (!token) {
@@ -34,7 +38,7 @@ export default withAuth(
   },
   {
     callbacks: {
-      authorized: ({ token }) => !!token,
+      authorized: ({ token }) => !!token && token.isActive !== false,
     },
   }
 );
