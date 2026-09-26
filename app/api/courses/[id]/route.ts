@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 import { CourseWithDetails } from '@/types/course';
 import { normalizeMoney } from '@/lib/money';
+import { archiveTrash } from '@/lib/trash';
 
 // GET /api/courses/[id] - Get single course (published for public, all for authorized instructor/admin)
 export async function GET(
@@ -328,6 +329,31 @@ export async function DELETE(
         { status: 403 }
       );
     }
+
+    const courseSnapshot = await prisma.course.findUnique({
+      where: { id },
+      include: {
+        videos: true,
+        quizzes: { include: { questions: true } },
+        courseNotes: true,
+        documents: true,
+      },
+    });
+
+    if (!courseSnapshot) {
+      return NextResponse.json(
+        { success: false, error: 'Course not found' },
+        { status: 404 }
+      );
+    }
+
+    await archiveTrash({
+      entityType: 'COURSE',
+      entityId: id,
+      courseId: id,
+      deletedById: session.user.id,
+      payload: courseSnapshot,
+    });
 
     await prisma.course.delete({
       where: { id },
