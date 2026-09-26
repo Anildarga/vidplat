@@ -9,17 +9,44 @@ export function formatDuration(seconds: number): string {
 }
 
 /**
- * Extract YouTube video ID and return embed URL
- * Supports:
- * - youtube.com/watch?v=VIDEO_ID
- * - youtu.be/VIDEO_ID
+ * Extract a YouTube video ID from common URL formats.
+ */
+export function getYouTubeVideoId(url: string): string | null {
+  const value = url.trim();
+  if (!value) return null;
+
+  try {
+    const parsed = new URL(value.includes('://') ? value : 'https://' + value);
+    const host = parsed.hostname.toLowerCase().replace(/^www\./, '').replace(/^m\./, '');
+
+    if (host === 'youtu.be') {
+      const id = parsed.pathname.split('/').filter(Boolean)[0];
+      return id && /^[a-zA-Z0-9_-]{11}$/.test(id) ? id : null;
+    }
+
+    if (host === 'youtube.com') {
+      const watchId = parsed.searchParams.get('v');
+      if (watchId && /^[a-zA-Z0-9_-]{11}$/.test(watchId)) return watchId;
+
+      const segments = parsed.pathname.split('/').filter(Boolean);
+      const candidate = segments[1];
+      if (['embed', 'shorts', 'live', 'v'].includes(segments[0]) && candidate && /^[a-zA-Z0-9_-]{11}$/.test(candidate)) {
+        return candidate;
+      }
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
+/**
+ * Convert a YouTube URL into an embeddable URL.
  */
 export function getYouTubeEmbedUrl(url: string): string | null {
-  const ytMatch = url.match(
-    /(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/
-  );
-  if (ytMatch) return `https://www.youtube.com/embed/${ytMatch[1]}`;
-  return null;
+  const id = getYouTubeVideoId(url);
+  return id ? 'https://www.youtube.com/embed/' + id + '?enablejsapi=1&rel=0' : null;
 }
 
 /**
