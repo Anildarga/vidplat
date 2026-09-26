@@ -42,10 +42,11 @@ model User {
   firstName          String?
   lastName           String?
   name               String?
-  email              String    @unique
+  email              String?   @unique
   emailVerified      DateTime?
   image              String?
   username           String?   @unique
+  identityId         String?   @unique
   bio                String?   @db.String
   password           String?
   role               Role      @default(STUDENT)
@@ -72,6 +73,7 @@ model User {
   discussionVotes     DiscussionVote[]
   coupons            Coupon[]
   couponUsages       CouponUsage[]
+  deletedTrashItems  TrashItem[] @relation("DeletedTrashItems")
 
   @@map("users")
 }
@@ -107,6 +109,8 @@ model Course {
   thumbnail    String?
   instructorId String   @db.ObjectId
   isPublished  Boolean  @default(false)
+  adminApproved Boolean  @default(false)
+  approvedAt   DateTime?
   price        Float    @default(0.0)
   currency     String   @default("USD")
   isFree       Boolean  @default(true)
@@ -119,6 +123,8 @@ model Course {
   quizzes      Quiz[]
   certificates CompletionCertificate[]
   reviews      Review[]
+  courseNotes  CourseNote[]
+  documents    CourseDocument[]
   bookmarks    Bookmark[]
   coupons      Coupon[]
   couponUsages CouponUsage[]
@@ -147,6 +153,55 @@ model Enrollment {
 
   @@unique([userId, courseId])
   @@map("enrollments")
+}
+
+model CourseNote {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  title     String
+  content   String   @db.String
+  order     Int      @default(0)
+  courseId  String   @db.ObjectId
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@map("course_notes")
+}
+
+model CourseDocument {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  title        String
+  url          String
+  fileName     String
+  mimeType     String
+  size         Int
+  resourceType String   @default("raw")
+  order        Int      @default(0)
+  courseId     String   @db.ObjectId
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@map("course_documents")
+}
+
+model TrashItem {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  entityType  String
+  entityId    String
+  courseId    String?  @db.ObjectId
+  deletedById String   @db.ObjectId
+  payload     Json
+  deletedAt   DateTime @default(now())
+
+  deletedBy User @relation("DeletedTrashItems", fields: [deletedById], references: [id], onDelete: Cascade)
+
+  @@index([entityType])
+  @@index([entityId])
+  @@index([deletedById])
+  @@map("trash_items")
 }
 
 model Video {
