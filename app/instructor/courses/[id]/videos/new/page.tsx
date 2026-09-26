@@ -267,20 +267,22 @@ export default function NewVideoPage() {
             </label>
 
             {/* Drag & Drop Upload Component */}
-            <div className="mb-6">
-              <DragDropUpload
-                onFileSelect={(file) => {
-                  setVideoFile(file);
-                  setUrl('');
-                  setDuration('');
-                }}
-                acceptedTypes="video/mp4,video/webm,video/ogg,video/quicktime,video/x-msvideo,video/mpeg"
-                maxSize={500}
-                label="Upload Video File"
-                description="Drag & drop a video file here, or click to browse"
-                preview={true}
-              />
-            </div>
+            {!url && (
+              <div className="mb-6">
+                <DragDropUpload
+                  onFileSelect={(file) => {
+                    setVideoFile(file);
+                    setUrl('');
+                    setDuration('');
+                  }}
+                  acceptedTypes="video/mp4,video/webm,video/ogg,video/quicktime,video/x-msvideo,video/mpeg"
+                  maxSize={500}
+                  label="Upload Video File"
+                  description="Drag & drop a video file here, or click to browse"
+                  preview={true}
+                />
+              </div>
+            )}
 
             {/* OR separator */}
             <div className="relative my-6">
