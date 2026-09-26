@@ -55,41 +55,38 @@ bun install
 
 ### 3. Set up environment variables
 
-Create a local `.env` file (do not commit secrets) and configure the variables required by your environment.
+Create a local `.env` file from `.env.example`. Never commit secrets; add production values through your hosting provider.
 
 ```env
 # Database
 DATABASE_URL="mongodb+srv://username:password@cluster.mongodb.net/eduplat?retryWrites=true&w=majority"
 
-# JWT
-JWT_SECRET="your-super-secret-jwt-key-change-in-production-minimum-32-chars"
-JWT_EXPIRES_IN="7d"
-JWT_REFRESH_SECRET="your-refresh-secret-key-change-in-production-minimum-32-chars"
-JWT_REFRESH_EXPIRES_IN="30d"
-
-# OAuth
-GOOGLE_CLIENT_ID="your-google-client-id"
-GOOGLE_CLIENT_SECRET="your-google-client-secret"
-GITHUB_CLIENT_ID="your-github-client-id"
-GITHUB_CLIENT_SECRET="your-github-client-secret"
-
-# App
-NODE_ENV="development"
-PORT=3001
-FRONTEND_URL="http://localhost:3000"
-
 # NextAuth
-NEXTAUTH_SECRET="your-nextauth-secret"
+NEXTAUTH_SECRET="replace-with-a-random-32-character-secret"
 NEXTAUTH_URL="http://localhost:3000"
 
-# Email Service (Brevo)
-BREVO_API_KEY="your-brevo-api-key"
-BREVO_FROM_EMAIL="noreply@eduplat.com"
+# OAuth
+GOOGLE_CLIENT_ID=""
+GOOGLE_CLIENT_SECRET=""
+GITHUB_CLIENT_ID=""
+GITHUB_CLIENT_SECRET=""
+
+# App
+FRONTEND_URL="http://localhost:3000"
+
+# Email
+BREVO_API_KEY=""
+BREVO_FROM_EMAIL="noreply@example.com"
 BREVO_FROM_NAME="Eduplat"
 
 # Stripe
-STRIPE_SECRET_KEY="your-stripe-secret-key"
-STRIPE_WEBHOOK_SECRET="your-stripe-webhook-secret"
+STRIPE_SECRET_KEY=""
+STRIPE_WEBHOOK_SECRET=""
+
+# Cloudinary
+CLOUDINARY_CLOUD_NAME=""
+CLOUDINARY_API_KEY=""
+CLOUDINARY_API_SECRET=""
 ```
 
 **Important**: Replace all placeholder values with your actual credentials. The existing `.env` file already contains sample values that you must update.
