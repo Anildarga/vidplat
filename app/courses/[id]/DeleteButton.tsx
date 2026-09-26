@@ -14,7 +14,7 @@ export default function DeleteButton({ courseId, onDelete }: DeleteButtonProps) 
   const [error, setError] = useState<string | null>(null);
 
   const handleDelete = async () => {
-    if (!confirm('Are you sure you want to delete this course? This action cannot be undone.')) {
+    if (!confirm('Move this course to Trash? You can restore it later. This action cannot be undone.')) {
       return;
     }
 
