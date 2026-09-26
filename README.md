@@ -4,15 +4,15 @@ A modern, full-featured educational platform built with Next.js 16, MongoDB, and
 
 ## Features
 
-- **User Authentication**: Email/password, Google OAuth, GitHub OAuth with NextAuth.js
-- **Role-Based Access**: Student, Instructor, and Admin roles
-- **Course Management**: Create, edit, publish, and delete courses
+- **User Authentication**: Username/password, Google OAuth, GitHub OAuth with NextAuth.js
+- **Role-Based Access**: Student, Instructor, and Admin roles with unique identity IDs (`stud########`, `inst########`, `admin########`)
+- **Course Management**: Create, edit, publish, admin approval, and trash-based recovery
 - **Video Management**: Upload, reorder, edit, and delete videos within courses
 - **Quiz System**: Create quizzes with multiple-choice questions, track results
 - **Progress Tracking**: Track video watch progress and quiz completion
 - **Certificate Generation**: Generate certificates upon course completion
 - **Responsive UI**: Built with Tailwind CSS, fully responsive
-- **File Uploads**: Support for course thumbnails and video thumbnails
+- **Course Content**: Videos, notes, quizzes, and documents (PDF, PPT, DOC, Excel, and other files)
 - **Email Notifications**: Password reset, email verification, and welcome emails via Brevo in production (Ethereal/Nodemailer in development)
 
 ## Tech Stack
@@ -21,7 +21,7 @@ A modern, full-featured educational platform built with Next.js 16, MongoDB, and
 - **Backend**: Next.js API Routes, NextAuth.js
 - **Database**: MongoDB (via Prisma ORM)
 - **Authentication**: NextAuth.js (JWT sessions)
-- **Email**: Brevo in production, Ethereal/Nodemailer in development
+- **Email**: Brevo in production when enabled, Ethereal/Nodemailer in development
 - **Deployment**: Vercel (recommended)
 
 ## Prerequisites
@@ -145,6 +145,21 @@ The seed script creates development users and content for local testing. Do not 
 | Instructor | `instructor@test.com`   | `password123` |
 | Admin      | `admin@test.com`        | `admin123`    |
 | Student    | `student@test.com`      | `student123`  |
+
+## Current account and course workflow
+
+Local signup uses only First name, Last name, Username, and Password. Username is unique. Login uses Username/Password or Google/GitHub. Email OTP verification and password-reset OTP flows are currently disabled.
+
+Each account has a unique role-based identity ID:
+- Student: `stud` + 8 digits
+- Instructor: `inst` + 8 digits
+- Admin: `admin` + 8 digits
+
+Admin user lookup is performed by identity ID rather than by browsing the full user directory.
+
+Course authors create a course first, then use **Add Content** to add videos, notes, quizzes, and documents. Publishing marks the course as author-published. Instructor-created courses remain hidden from students until an Admin approves them. After approval, instructors can edit course details and content without another approval cycle.
+
+Deleted courses and course content are archived in Trash before removal and can be restored by the deleting author or an Admin.
 
 ## Project Structure
 
