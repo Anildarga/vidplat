@@ -46,6 +46,14 @@ export default function AdminDashboard() {
             <p className="text-gray-500">Manage all platform users</p>
             <p className="mt-2 text-sm text-blue-500">Click to open →</p>
           </div>
+          <div
+            className="p-6 border rounded-lg cursor-pointer hover:bg-gray-50 transition"
+            onClick={() => router.push('/admin/courses')}
+          >
+            <h3 className="font-semibold text-lg text-purple-600">Course Approvals</h3>
+            <p className="text-gray-500">Review instructor-published courses</p>
+            <p className="mt-2 text-sm text-purple-500">Click to open →</p>
+          </div>
           <div className="p-6 border rounded-lg">
             <h3 className="font-semibold text-lg">Platform Settings</h3>
             <p className="text-gray-500">Configure system settings</p>
