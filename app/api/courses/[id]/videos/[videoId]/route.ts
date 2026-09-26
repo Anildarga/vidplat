@@ -16,7 +16,7 @@ async function canManageVideo(
 
   if (!course) return false;
 
-  const isOwner = course.instructorId === userId;
+  const isOwner = userRole === 'INSTRUCTOR' && course.instructorId === userId;
   const isAdmin = userRole === 'ADMIN';
 
   return isOwner || isAdmin;
@@ -55,7 +55,7 @@ export async function GET(
     }
 
     const isAdmin = session?.user?.role === 'ADMIN';
-    const isOwner = session?.user?.id === course.instructorId;
+    const isOwner = session?.user?.role === 'INSTRUCTOR' && session?.user?.id === course.instructorId;
 
     if (!isAdmin && !isOwner && (!course.isPublished || !course.adminApproved)) {
       return NextResponse.json(
