@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (!course.isPublished) {
+    if (!course.isPublished || !course.adminApproved) {
       return NextResponse.json(
         { success: false, error: 'Course is not available' },
         { status: 400 }
