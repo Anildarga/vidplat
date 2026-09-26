@@ -107,9 +107,9 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       },
     });
 
-    if (!enrollment) {
+    if (enrollment.paymentStatus !== 'COMPLETED') {
       return NextResponse.json(
-        { success: false, error: 'Not enrolled in this course' },
+        { success: false, error: 'Course access requires completed payment' },
         { status: 403 }
       );
     }
