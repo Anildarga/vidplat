@@ -7,6 +7,8 @@ import Link from 'next/link'
 interface User {
   name?: string | null
   role?: string
+  identityId?: string | null
+  username?: string | null
 }
 
 interface ProfileMenuProps {
@@ -99,6 +101,11 @@ export default function ProfileMenu({ user, onLogout }: ProfileMenuProps) {
             <p className="text-sm text-gray-500 dark:text-gray-400">
               {user.role || 'Unknown'}
             </p>
+            {user.identityId && (
+              <p className="text-xs font-mono text-gray-400 dark:text-gray-500 mt-1">
+                {user.identityId}
+              </p>
+            )}
           </div>
 
           <div className="py-1">
