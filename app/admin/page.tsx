@@ -48,6 +48,15 @@ export default function AdminDashboard() {
           </div>
           <div
             className="p-6 border rounded-lg cursor-pointer hover:bg-gray-50 transition"
+            onClick={() => router.push('/trash')}
+          >
+            <h3 className="font-semibold text-lg text-red-600">Trash</h3>
+            <p className="text-gray-500">Restore deleted courses and content</p>
+            <p className="mt-2 text-sm text-red-500">Open trash →</p>
+          </div>
+
+          <div
+            className="p-6 border rounded-lg cursor-pointer hover:bg-gray-50 transition"
             onClick={() => router.push('/admin/courses')}
           >
             <h3 className="font-semibold text-lg text-purple-600">Course Approvals</h3>
