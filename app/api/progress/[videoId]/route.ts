@@ -212,13 +212,26 @@ export async function POST(
       select: {
         watchedSeconds: true,
         completed: true,
+        updatedAt: true,
       },
     });
 
-    // Progress cannot move backwards and completion cannot be undone.
+    // Bound each progress increase by real elapsed time since the previous save.
+    // This prevents a client from jumping from a few seconds to 90% completion
+    // in a single request. A small 25% allowance covers timer/network jitter.
+    const previousWatchedSeconds = existingProgress?.watchedSeconds ?? 0;
+    const elapsedSeconds = existingProgress?.updatedAt
+      ? Math.max(0, (Date.now() - existingProgress.updatedAt.getTime()) / 1000)
+      : 15;
+    const maxProgressIncrease = Math.max(15, elapsedSeconds * 1.25);
+    const maxAllowedWatchedSeconds = Math.min(
+      Math.floor(duration),
+      Math.floor(previousWatchedSeconds + maxProgressIncrease)
+    );
+
     const finalWatchedSeconds = Math.max(
-      existingProgress?.watchedSeconds ?? 0,
-      normalizedWatchedSeconds
+      previousWatchedSeconds,
+      Math.min(normalizedWatchedSeconds, maxAllowedWatchedSeconds)
     );
     const finalCompleted = Boolean(existingProgress?.completed) || isCompleted;
 
