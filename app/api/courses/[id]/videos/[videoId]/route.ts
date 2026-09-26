@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
+import { archiveTrash } from '@/lib/trash';
 
 // Helper to check if user can manage course videos
 async function canManageVideo(
@@ -281,7 +282,14 @@ export async function DELETE(
       );
     }
 
-    // Delete the video
+    await archiveTrash({
+      entityType: 'VIDEO',
+      entityId: existingVideo.id,
+      courseId,
+      deletedById: session.user.id,
+      payload: existingVideo,
+    });
+
     await prisma.video.delete({
       where: { id: videoId },
     });
