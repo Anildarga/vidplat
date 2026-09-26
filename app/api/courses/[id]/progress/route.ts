@@ -20,6 +20,28 @@ export async function GET(
 
     const { id: courseId } = await params;
 
+    const isInstructorOrAdmin =
+      session.user.role === 'INSTRUCTOR' || session.user.role === 'ADMIN';
+
+    if (!isInstructorOrAdmin) {
+      const enrollment = await prisma.enrollment.findUnique({
+        where: {
+          userId_courseId: {
+            userId: session.user.id,
+            courseId,
+          },
+        },
+        select: { paymentStatus: true },
+      });
+
+      if (enrollment?.paymentStatus !== 'COMPLETED') {
+        return NextResponse.json(
+          { success: false, error: 'Course access requires completed payment' },
+          { status: 403 }
+        );
+      }
+    }
+
     // Fetch all videos in the course
     const videos = await prisma.video.findMany({
       where: { courseId },
