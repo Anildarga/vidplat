@@ -32,7 +32,8 @@ export async function GET(
     return NextResponse.json({
       success: true,
       data: {
-        enrolled: !!enrollment,
+        enrolled: enrollment?.paymentStatus === 'COMPLETED',
+        paymentStatus: enrollment?.paymentStatus ?? null,
       },
     });
   } catch (error) {
