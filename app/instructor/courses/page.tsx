@@ -88,12 +88,20 @@ export default function InstructorCoursesPage() {
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
           My Courses
         </h1>
-        <Link
-          href="/instructor/courses/new"
-          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
-        >
-          Create New Course
-        </Link>
+        <div className="flex gap-2">
+          <Link
+            href="/trash"
+            className="px-4 py-2 border border-gray-300 rounded hover:bg-gray-50 transition"
+          >
+            Trash
+          </Link>
+          <Link
+            href="/instructor/courses/new"
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
+          >
+            Create New Course
+          </Link>
+        </div>
       </div>
 
       {error && (
