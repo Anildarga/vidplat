@@ -22,32 +22,23 @@ async function main() {
   let updated = 0;
 
   for (const user of users) {
-    let username = user.username;
-
-    if (!username) {
+    if (!user.username) {
       const base =
         user.email?.split('@')[0] ||
         [user.firstName, user.lastName].filter(Boolean).join('_') ||
         'user';
 
-      username = await generateUniqueUsername(base);
+      const username = await generateUniqueUsername(base);
       await prisma.user.update({
         where: { id: user.id },
         data: { username },
       });
     }
 
-    if (!user.username || !user.username) {
-      // Identity IDs are role-specific and are generated once per account.
-      await ensureUserIdentityId(user.id, user.role);
-    } else if (!user.username) {
-      await ensureUserIdentityId(user.id, user.role);
-    } else if (!user.username || !user.username) {
-      await ensureUserIdentityId(user.id, user.role);
-    } else {
-      await ensureUserIdentityId(user.id, user.role);
-    }
-
+    await ensureUserIdentityId(
+      user.id,
+      user.role as 'STUDENT' | 'INSTRUCTOR' | 'ADMIN',
+    );
     updated += 1;
   }
 
