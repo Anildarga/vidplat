@@ -63,6 +63,48 @@ export async function GET(
       }
     }
 
+    const isOwner = session?.user?.id === course.instructorId;
+    const isAdmin = session?.user?.role === 'ADMIN';
+    const isInstructor = session?.user?.role === 'INSTRUCTOR' && isOwner;
+
+    let hasCompletedEnrollment = false;
+    if (session?.user?.id && !isOwner && !isAdmin) {
+      const enrollment = await prisma.enrollment.findUnique({
+        where: {
+          userId_courseId: {
+            userId: session.user.id,
+            courseId: id,
+          },
+        },
+        select: { paymentStatus: true },
+      });
+      hasCompletedEnrollment = enrollment?.paymentStatus === 'COMPLETED';
+    }
+
+    const canAccessCourseContent =
+      isOwner || isInstructor || isAdmin || hasCompletedEnrollment;
+
+    // Do not expose paid video URLs or quiz answer data through this endpoint.
+    // Public/pending-payment users still receive course metadata.
+    const responseCourse = canAccessCourseContent
+      ? course
+      : {
+          ...course,
+          videos: course.videos.map(({ url: _url, ...video }) => ({
+            ...video,
+            url: '',
+          })),
+          quizzes: course.quizzes.map((quiz) => ({
+            id: quiz.id,
+            title: quiz.title,
+            description: quiz.description,
+            courseId: quiz.courseId,
+            createdAt: quiz.createdAt,
+            passingScore: quiz.passingScore,
+            type: quiz.type,
+          })),
+        };
+
     // Fetch reviews for this course separately
     const reviews = await (prisma as any).review.findMany({
       where: { courseId: id },
@@ -78,7 +120,7 @@ export async function GET(
       : 0;
     
     const typedCourse: CourseWithDetails = {
-      ...course,
+      ...responseCourse,
       reviews,
       averageRating,
       _count: {
