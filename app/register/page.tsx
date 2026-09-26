@@ -1,14 +1,13 @@
 'use client'
 
 import { Suspense, useState, useEffect } from 'react'
-import { useSearchParams, useRouter } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { signIn } from 'next-auth/react'
 
 export const dynamic = 'force-dynamic'
 
 function RegisterForm() {
-  const searchParams = useSearchParams()
   const router = useRouter()
   const { data: session, status } = useSession()
 
