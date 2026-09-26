@@ -13,7 +13,8 @@
     "cloudinary:create": "node scripts/setup-cloudinary.js create",
     "cloudinary:update": "node scripts/setup-cloudinary.js update",
     "cloudinary:delete": "node scripts/setup-cloudinary.js delete",
-    "db:backfill-identities": "tsx scripts/backfill-identities.ts"
+    "db:backfill-identities": "tsx scripts/backfill-identities.ts",
+    "db:seed": "tsx prisma/seed.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
