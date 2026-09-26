@@ -534,20 +534,12 @@ export default function EditVideoPage() {
             )}
           </div>
 
-          {/* Duration */}
-          <div>
-            <label htmlFor="duration" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Duration (seconds, optional)
-            </label>
-            <input
-              type="number"
-              id="duration"
-              value={duration}
-              onChange={(e) => setDuration(e.target.value)}
-              min="0"
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="e.g. 300 for a 5 minute video"
-            />
+          {/* Duration is detected automatically for uploaded video files. */}
+          <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Video Duration</p>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              {duration ? 'Detected duration: ' + duration + ' seconds' : 'Duration will be detected when a video file is uploaded.'}
+            </p>
           </div>
 
           {/* Unlock Schedule */}
