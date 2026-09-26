@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 import { CourseWithDetails } from '@/types/course';
 import { Prisma } from '@prisma/client';
+import { normalizeMoney } from '@/lib/money';
 
 // GET /api/courses - Public: list all courses (with optional search)
 export async function GET(req: NextRequest) {
@@ -84,8 +85,8 @@ export async function POST(req: NextRequest) {
     }
 
     // Validate price
-    const priceValue = price !== undefined ? parseFloat(price) : 0;
-    if (priceValue < 0) {
+    const priceValue = price !== undefined ? normalizeMoney(price) : 0;
+    if (priceValue === null) {
       return NextResponse.json(
         { success: false, error: 'Price cannot be negative' },
         { status: 400 }
