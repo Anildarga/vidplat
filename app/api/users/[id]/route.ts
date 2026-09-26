@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
-import { generateUniqueIdentityId } from '@/lib/user-identity';
 
 export async function PATCH(
   req: NextRequest,
@@ -16,6 +15,16 @@ export async function PATCH(
   }
 
   const body = await req.json();
+
+  // Roles are immutable after account creation. Admins must create a new
+  // account when a different role is required.
+  if (body.role !== undefined) {
+    return NextResponse.json(
+      { success: false, error: 'User roles cannot be changed. Create a new account with the required role.' },
+      { status: 400 }
+    );
+  }
+
   const updateData: Record<string, unknown> = {};
 
   if (body.firstName !== undefined) {
@@ -39,16 +48,6 @@ export async function PATCH(
     updateData.name = body.name === null ? null : body.name.trim();
   }
 
-  if (body.role !== undefined) {
-    if (!['STUDENT', 'INSTRUCTOR', 'ADMIN'].includes(body.role)) {
-      return NextResponse.json({ success: false, error: 'Invalid role' }, { status: 400 });
-    }
-    if (id === session.user.id && body.role !== session.user.role) {
-      return NextResponse.json({ success: false, error: 'Cannot change your own admin role' }, { status: 400 });
-    }
-    updateData.role = body.role;
-  }
-
   if (body.isActive !== undefined) {
     if (typeof body.isActive !== 'boolean') {
       return NextResponse.json({ success: false, error: 'isActive must be boolean' }, { status: 400 });
@@ -66,15 +65,11 @@ export async function PATCH(
   try {
     const existingUser = await prisma.user.findUnique({
       where: { id },
-      select: { role: true },
+      select: { id: true },
     });
 
     if (!existingUser) {
       return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 });
-    }
-
-    if (body.role && body.role !== existingUser.role) {
-      updateData.identityId = await generateUniqueIdentityId(body.role);
     }
 
     const user = await prisma.user.update({
