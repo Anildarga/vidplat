@@ -1,176 +1,39 @@
-# Database Setup & Test Data Guide
+# Eduplat Setup Guide
 
-## Overview
-This project now includes:
-- ✅ Full Course CRUD
-- ✅ Complete Video Management feature
-- ✅ Test data seed script
+## Stack
 
-## Database Configuration
+Eduplat is a Next.js 16 App Router application using React 19, TypeScript, MongoDB with Prisma, NextAuth JWT sessions, Stripe for payments, Cloudinary for media, and Brevo for production email delivery.
 
-The project is configured to use **MongoDB** (as per tech stack). The `.env` file already contains a MongoDB Atlas connection string.
+## Environment
 
-### Schema Updates for MongoDB
-The `prisma/schema.prisma` has been updated for MongoDB compatibility:
-- All `@id` fields now map to MongoDB's `_id`
-- Removed PostgreSQL-specific `@db.Text` annotations
-- Added required `@id` fields to all models
+Create a local `.env` file and configure the values documented in `README.md`. Never commit credentials, captured cookies, session tokens, API keys, or local request/response logs.
 
-## Getting Test Data
+For production, configure at minimum:
 
-### Option 1: Run Seed Script (Automated)
+- `DATABASE_URL`
+- `NEXTAUTH_SECRET`
+- `NEXTAUTH_URL`
+- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` when Google login is enabled
+- `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` when GitHub login is enabled
+- `BREVO_API_KEY` and sender settings
+- `STRIPE_SECRET_KEY`
+- `STRIPE_WEBHOOK_SECRET`
+- `CLOUDINARY_CLOUD_NAME` / `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET`
 
-**Prerequisites:**
-1. Ensure MongoDB Atlas connection is active and the database exists
-2. Stop any running dev server (to avoid file lock issues on Windows)
-3. Install dependencies: `npm install`
+## Database
 
-**Steps:**
+Run `npm install`, then `npx prisma generate` and `npx prisma db push` against a separate development MongoDB database.
 
-```bash
-# 1. Generate Prisma client (may require closing all Node processes)
-npx prisma generate
+## Run locally
 
-# If you get EPERM error on Windows, manually delete:
-# node_modules/.prisma/client/*
-# Then re-run generate
+Run `npm run dev`. The app normally starts at `http://localhost:3000`.
 
-# 2. Push schema to database (creates collections)
-npx prisma db push
+## Production deployment
 
-# 3. Run seed script
-npm run db:seed
-```
+Deploy to Vercel or another Next.js-compatible host and configure environment variables in the hosting platform. Production uploads require Cloudinary; the app does not fall back to local filesystem storage in production.
 
-**Expected Output:**
-```
-🌱 Starting seed...
-✅ Instructor user exists or created: instructor@test.com
-✅ Course 1 exists or created: Introduction to React
-  → Added 3 videos to course 1
-✅ Course 2 exists or created: Advanced TypeScript
-  → Added 2 videos to course 2
-✅ Admin user exists or created: admin@test.com
-✅ Student user exists or created: student@test.com
-🎉 Seed completed!
-```
+Stripe webhooks must target `/api/stripe/webhook` and use the configured webhook signing secret.
 
-### Option 2: Manual Data Creation
+## Security checks
 
-If seed script fails, you can create test data manually:
-
-1. **Start the app:** `npm run dev`
-2. **Go to `/register`** and create:
-   - Instructor account
-   - Student account
-3. **Login as Instructor** → `/instructor/courses`
-4. **Create 2 test courses:**
-   - Course 1 (Published): "Introduction to React"
-   - Course 2 (Draft): "Advanced TypeScript"
-5. **Add videos** to each course via "Manage Videos"
-
-## Test Credentials
-
-After running the seed, use these accounts:
-
-| Role     | Email                   | Password    |
-|----------|-------------------------|-------------|
-| Instructor | `instructor@test.com` | `password123` |
-| Admin    | `admin@test.com`       | `admin123`   |
-| Student  | `student@test.com`     | `student123` |
-
-## Test Courses (from seed)
-
-### Course 1: Introduction to React ✅ PUBLISHED
-- **Status:** Published (visible at `/courses`)
-- **Instructor:** Test Instructor
-- **Videos:**
-  1. Getting Started with React (10:00)
-  2. Components and Props (12:00)
-  3. State and Lifecycle (15:00)
-- **Description:** Learn the fundamentals of React.js
-
-### Course 2: Advanced TypeScript 📝 DRAFT
-- **Status:** Draft (NOT visible on public page)
-- **Instructor:** Test Instructor
-- **Videos:**
-  1. Generics Explained (9:00)
-  2. Utility Types (8:00)
-- **Description:** Deep dive into TypeScript patterns
-
-## Features to Test
-
-### 1. Course Browsing (/courses)
-- ✅ Public page shows only published courses
-- ✅ Course cards display: thumbnail, title, instructor, video count, quiz count
-- ✅ Search filters courses by title
-
-### 2. Course Detail (/courses/[id])
-- ✅ Shows full course info, videos, quizzes
-- ✅ Instructor/admin sees Edit & Delete buttons
-- ✅ Student sees "Enroll" button (disabled, coming soon)
-- ✅ Lock icon on videos for non-instructors
-
-### 3. Instructor Dashboard (/instructor/courses)
-- ✅ Shows all courses (published + drafts)
-- ✅ "Manage Videos" button on each card
-- ✅ Create new course (Draft or Publish)
-- ✅ Edit/Delete courses
-- ✅ Empty state when no courses
-
-### 4. Video Management (/instructor/courses/[id]/videos)
-- ✅ List videos with order number, thumbnail, title, duration
-- ✅ Up/Down buttons to reorder
-- ✅ Edit video inline
-- ✅ Delete video (auto-reorders remaining)
-- ✅ "Add New Video" button
-- ✅ YouTube URL preview in forms
-- ✅ Thumbnail preview
-- ✅ Duration formatting (MM:SS)
-- ✅ Breadcrumb navigation
-
-### 5. API Endpoints
-- ✅ `GET /api/courses` - public published list
-- ✅ `POST /api/courses` - create (instructor/admin)
-- ✅ `GET /api/courses/[id]` - get single (auth for drafts)
-- ✅ `PATCH /api/courses/[id]` - update (owner/admin)
-- ✅ `DELETE /api/courses/[id]` - delete (owner/admin)
-- ✅ `GET /api/courses/my` - instructor's own courses
-- ✅ `GET /api/courses/[id]/videos` - list videos
-- ✅ `POST /api/courses/[id]/videos` - add video
-- ✅ `GET/PATCH/DELETE /api/courses/[id]/videos/[videoId]`
-- ✅ `PATCH /api/courses/[id]/videos/reorder`
-
-## Troubleshooting
-
-### Windows File Lock Errors
-If `prisma generate` fails with EPERM:
-1. Close all terminal/Node processes
-2. Delete `node_modules/.prisma/client`
-3. Run `npx prisma generate` again
-
-### MongoDB Connection Issues
-- Verify `.env` DATABASE_URL is correct
-- Check MongoDB Atlas network whitelist
-- Ensure user has readWrite permissions
-
-### Auth Not Working
-- Check `NEXTAUTH_SECRET` and `NEXTAUTH_URL` in `.env`
-- Restart dev server after env changes
-
-### Videos Not Showing in Course Detail
-- Ensure videos have `courseId` set correctly
-- Check that course is published (for public view)
-- Public page shows lock icon for all videos (enrollment check not implemented yet)
-
-## Next Steps
-
-After setup:
-1. Run dev server: `npm run dev`
-2. Login as `instructor@test.com`
-3. Go to `/instructor/courses`
-4. Click "Manage Videos" on any course
-5. Test adding, editing, reordering, deleting videos
-6. Publish a course and verify it appears on `/courses`
-
-Enjoy testing! 🎬
+Before release, verify that unverified credential users cannot sign in, disabled users lose protected-session access, public registration cannot create Instructor/Admin accounts, instructors cannot access another instructor's course-management or learning content, paid courses reject PENDING/FAILED/CANCELLED enrollments, quiz answers are hidden before submission, repeated Stripe webhooks do not duplicate payments or coupon usage, production email fails closed without Brevo, production uploads require Cloudinary, and no captured cookies, headers, logs, secrets, or real credentials are committed.
