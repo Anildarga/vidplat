@@ -139,6 +139,22 @@ export default async function CourseDetailPage({
   const canAccessVideos = isEnrolled || isAdmin || isOwner;
   const canAccessCourseContent = canAccessVideos;
 
+  const courseNotes = canAccessCourseContent
+    ? await prisma.courseNote.findMany({
+        where: { courseId: id },
+        orderBy: { order: 'asc' },
+        select: { id: true, title: true, content: true, order: true },
+      })
+    : courseWithDetails.courseNotes;
+
+  const courseDocuments = canAccessCourseContent
+    ? await prisma.courseDocument.findMany({
+        where: { courseId: id },
+        orderBy: { order: 'asc' },
+        select: { id: true, title: true, url: true, fileName: true, mimeType: true, size: true, order: true },
+      })
+    : courseWithDetails.documents;
+
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
       {/* Back link */}
@@ -323,14 +339,19 @@ export default async function CourseDetailPage({
       </div>
 
       {/* Notes Section */}
-      {courseWithDetails.courseNotes?.length > 0 && (
+      {courseNotes?.length > 0 && (
         <div className="mt-8">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Notes</h2>
           <ul className="space-y-3">
-            {courseWithDetails.courseNotes.map((note: any) => (
+            {courseNotes.map((note: any) => (
               <li key={note.id} className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow flex items-center gap-3">
                 {!canAccessCourseContent && <span className="text-gray-500">🔒</span>}
+                <div className="flex-1">
                 <span className="font-medium text-gray-900 dark:text-white">{note.title}</span>
+                {canAccessCourseContent && (
+                  <p className="mt-2 whitespace-pre-wrap text-sm text-gray-600 dark:text-gray-300">{note.content}</p>
+                )}
+              </div>
               </li>
             ))}
           </ul>
@@ -341,11 +362,11 @@ export default async function CourseDetailPage({
       )}
 
       {/* Documents Section */}
-      {courseWithDetails.documents?.length > 0 && (
+      {courseDocuments?.length > 0 && (
         <div className="mt-8">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Documents</h2>
           <ul className="space-y-3">
-            {courseWithDetails.documents.map((document: any) => (
+            {courseDocuments.map((document: any) => (
               <li key={document.id} className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3 min-w-0">
                   {!canAccessCourseContent && <span className="text-gray-500">🔒</span>}
@@ -356,7 +377,7 @@ export default async function CourseDetailPage({
                 </div>
                 {canAccessCourseContent ? (
                   <a
-                    href={'/api/courses/' + courseWithDetails.id + '/documents/' + document.id + '/download'}
+                    href={document.url}
                     className="px-3 py-2 border rounded-lg text-sm"
                   >
                     Open
