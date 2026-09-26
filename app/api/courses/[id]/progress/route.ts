@@ -20,10 +20,23 @@ export async function GET(
 
     const { id: courseId } = await params;
 
-    const isInstructorOrAdmin =
-      session.user.role === 'INSTRUCTOR' || session.user.role === 'ADMIN';
+    const course = await prisma.course.findUnique({
+      where: { id: courseId },
+      select: { instructorId: true },
+    });
 
-    if (!isInstructorOrAdmin) {
+    if (!course) {
+      return NextResponse.json(
+        { success: false, error: 'Course not found' },
+        { status: 404 }
+      );
+    }
+
+    const isAdmin = session.user.role === 'ADMIN';
+    const isCourseOwner = session.user.role === 'INSTRUCTOR'
+      && course.instructorId === session.user.id;
+
+    if (!isAdmin && !isCourseOwner) {
       const enrollment = await prisma.enrollment.findUnique({
         where: {
           userId_courseId: {
