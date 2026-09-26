@@ -11,7 +11,9 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const search = searchParams.get('search')?.trim();
 
-    const where: Prisma.CourseWhereInput = {};
+    const where: Prisma.CourseWhereInput = {
+      isPublished: true,
+    };
 
     if (search) {
       where.OR = [
