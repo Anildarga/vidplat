@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
+import { archiveTrash } from '@/lib/trash';
 import { calculateCourseProgress } from '@/lib/progress-calculator';
 
 // GET /api/quizzes/[quizId] - Get quiz with questions
@@ -230,7 +231,14 @@ export async function DELETE(
       );
     }
 
-    // Delete quiz (questions will be cascade deleted)
+    await archiveTrash({
+      entityType: 'QUIZ',
+      entityId: quiz.id,
+      courseId: quiz.courseId,
+      deletedById: session.user.id,
+      payload: quiz,
+    });
+
     await prisma.quiz.delete({
       where: { id: quizId },
     });
