@@ -12,24 +12,14 @@ function RegisterForm() {
   const router = useRouter()
   const { data: session, status } = useSession()
 
-  const roleParam = searchParams.get('role')
-  const defaultRole = roleParam && ['STUDENT', 'INSTRUCTOR'].includes(roleParam) ? roleParam : 'STUDENT'
-
-  const [name, setName] = useState('')
+    const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
-  const [role, setRole] = useState<'STUDENT' | 'INSTRUCTOR'>(defaultRole as any)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [acceptedTerms, setAcceptedTerms] = useState(false)
   const [acceptedPrivacy, setAcceptedPrivacy] = useState(false)
-
-  useEffect(() => {
-    if (roleParam && ['STUDENT', 'INSTRUCTOR'].includes(roleParam)) {
-      setRole(roleParam as any)
-    }
-  }, [roleParam])
 
   // If already authenticated, redirect to home
   useEffect(() => {
@@ -63,7 +53,7 @@ function RegisterForm() {
       const res = await fetch(`${baseUrl}/api/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email: email.trim().toLowerCase(), password, role, acceptedTerms, acceptedPrivacy }),
+        body: JSON.stringify({ name, email: email.trim().toLowerCase(), password, acceptedTerms, acceptedPrivacy }),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -85,7 +75,7 @@ function RegisterForm() {
         <div className="text-center">
           <h2 className="mt-6 text-3xl font-bold text-gray-900 dark:text-white">Create Account</h2>
           <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
-            Join Eduplat as a {role.toLowerCase()}
+            Create your Eduplat account
           </p>
         </div>
 
@@ -151,34 +141,6 @@ function RegisterForm() {
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Role</label>
-              <div className="mt-2 space-y-2">
-                <label className="flex items-center">
-                  <input
-                    type="radio"
-                    name="role"
-                    value="STUDENT"
-                    checked={role === 'STUDENT'}
-                    onChange={() => setRole('STUDENT')}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600"
-                  />
-                  <span className="ml-2 text-gray-700 dark:text-gray-300">Student</span>
-                </label>
-                <label className="flex items-center">
-                  <input
-                    type="radio"
-                    name="role"
-                    value="INSTRUCTOR"
-                    checked={role === 'INSTRUCTOR'}
-                    onChange={() => setRole('INSTRUCTOR')}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600"
-                  />
-                  <span className="ml-2 text-gray-700 dark:text-gray-300">Instructor</span>
-                </label>
-                {/* Admin role is hidden from registration */}
-              </div>
-            </div>
           </div>
     
           {/* Terms and Privacy Checkboxes */}
