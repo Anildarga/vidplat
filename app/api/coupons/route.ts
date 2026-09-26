@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
+import { normalizeMoney } from '@/lib/money';
 
 /**
  * GET /api/coupons
@@ -88,8 +89,8 @@ export async function POST(req: NextRequest) {
       code,
       description,
       discountType,
-      discountValue,
-      maxUses,
+      discountValue: discountValueNumber,
+      maxUses:
       courseId,
       expiresAt,
     } = body;
@@ -98,6 +99,14 @@ export async function POST(req: NextRequest) {
     if (!code || !discountType || discountValue === undefined) {
       return NextResponse.json(
         { success: false, error: 'Missing required fields' },
+        { status: 400 }
+      );
+    }
+
+    const discountValueNumber = normalizeMoney(discountValue);
+    if (discountValueNumber === null) {
+      return NextResponse.json(
+        { success: false, error: 'Discount value must be a non-negative number' },
         { status: 400 }
       );
     }
