@@ -11,6 +11,8 @@ interface CourseData {
   description: string | null;
   thumbnail: string | null;
   isPublished: boolean;
+  adminApproved: boolean;
+  approvedAt: string | null;
 }
 
 interface Quiz {
@@ -33,6 +35,7 @@ export default function EditCoursePage() {
   const [description, setDescription] = useState('');
   const [thumbnail, setThumbnail] = useState('');
   const [isPublished, setIsPublished] = useState(false);
+  const [adminApproved, setAdminApproved] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -74,6 +77,7 @@ export default function EditCoursePage() {
         setDescription(data.data.description || '');
         setThumbnail(data.data.thumbnail || '');
         setIsPublished(data.data.isPublished);
+        setAdminApproved(data.data.adminApproved);
 
         // Fetch quizzes for this course
         const quizzesRes = await fetch(`${baseUrl}/api/courses/${courseId}/quizzes`, { cache: 'no-store' });
@@ -206,9 +210,29 @@ export default function EditCoursePage() {
       </div>
 
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 max-w-3xl">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
-          Edit Course
-        </h1>
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Edit Course</h1>
+          <div className="flex items-center gap-2 text-sm">
+            {!isPublished && <span className="px-3 py-1 rounded-full bg-gray-100 text-gray-700">Draft</span>}
+            {isPublished && !adminApproved && <span className="px-3 py-1 rounded-full bg-yellow-100 text-yellow-800">Awaiting Admin Approval</span>}
+            {isPublished && adminApproved && <span className="px-3 py-1 rounded-full bg-green-100 text-green-800">Live</span>}
+          </div>
+        </div>
+
+        <div className="mb-8 relative">
+          <details className="group">
+            <summary className="list-none cursor-pointer inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700">
+              Add Content
+              <span>▾</span>
+            </summary>
+            <div className="absolute z-30 mt-2 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-2">
+              <Link href={"/instructor/courses/" + courseId + "/videos/new"} className="block px-3 py-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700">Add Video</Link>
+              <Link href={"/instructor/courses/" + courseId + "/notes"} className="block px-3 py-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700">Add Notes</Link>
+              <Link href={"/instructor/courses/" + courseId + "/quizzes/new"} className="block px-3 py-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700">Add Quiz</Link>
+              <Link href={"/instructor/courses/" + courseId + "/documents"} className="block px-3 py-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700">Add Documents</Link>
+            </div>
+          </details>
+        </div>
 
         {error && (
           <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded">
@@ -289,7 +313,7 @@ export default function EditCoursePage() {
               className="w-5 h-5 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded"
             />
             <label htmlFor="isPublished" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              Published (visible to students)
+              Published by author (admin approval may still be required)
             </label>
             {!isPublished && (
               <span className="text-xs text-yellow-600 dark:text-yellow-400">(Draft)</span>
@@ -301,11 +325,14 @@ export default function EditCoursePage() {
             {!isPublished && (
               <button
                 type="button"
-                onClick={handleSave}
+                onClick={() => {
+                  setIsPublished(true);
+                  setTimeout(() => handleSave(), 0);
+                }}
                 disabled={isSaving}
                 className="px-6 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 transition"
               >
-                {isSaving ? 'Publishing...' : 'Publish Course'}
+                {isSaving ? 'Publishing...' : adminApproved ? 'Publish Course' : 'Publish for Review'}
               </button>
             )}
             <button
