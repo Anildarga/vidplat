@@ -12,18 +12,50 @@ export async function GET(
     const { id: courseId } = await params;
     const session = await getServerSession(authOptions);
 
-    // For public access, check course publication status
-    if (!session) {
-      // For unauthenticated users, only return published course quizzes
-      const course = await prisma.course.findUnique({
-        where: { id: courseId },
-        select: { isPublished: true },
+    const course = await prisma.course.findUnique({
+      where: { id: courseId },
+      select: { isPublished: true, adminApproved: true, instructorId: true },
+    });
+
+    if (!course) {
+      return NextResponse.json(
+        { success: false, error: 'Course not found' },
+        { status: 404 }
+      );
+    }
+
+    const isAdmin = session?.user?.role === 'ADMIN';
+    const isOwner = session?.user?.id === course.instructorId;
+
+    if (!isAdmin && !isOwner) {
+      if (!course.isPublished || !course.adminApproved) {
+        return NextResponse.json(
+          { success: false, error: 'Course is not available' },
+          { status: 404 }
+        );
+      }
+
+      if (!session?.user?.id) {
+        return NextResponse.json(
+          { success: false, error: 'Authentication required' },
+          { status: 401 }
+        );
+      }
+
+      const enrollment = await prisma.enrollment.findUnique({
+        where: {
+          userId_courseId: {
+            userId: session.user.id,
+            courseId,
+          },
+        },
+        select: { paymentStatus: true },
       });
 
-      if (!course || !course.isPublished) {
+      if (enrollment?.paymentStatus !== 'COMPLETED') {
         return NextResponse.json(
-          { success: false, error: 'Course not found or not published' },
-          { status: 404 }
+          { success: false, error: 'Course access requires completed payment' },
+          { status: 403 }
         );
       }
     }
