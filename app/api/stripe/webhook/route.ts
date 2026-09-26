@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
           throw new Error(`Checkout session ${session.id} has no payment intent`);
         }
 
-        const enrollment = await prisma.enrollment.findFirst({
+        let enrollment = await prisma.enrollment.findFirst({
           where: {
             stripeSessionId: session.id,
           },
@@ -39,6 +39,28 @@ export async function POST(req: NextRequest) {
             couponId: true,
           },
         });
+
+        // The checkout endpoint creates the Stripe session just before writing
+        // stripeSessionId to the enrollment. Fall back to Stripe metadata so a
+        // webhook delivered during that small window can still be matched.
+        if (!enrollment && session.metadata?.userId && session.metadata?.courseId) {
+          enrollment = await prisma.enrollment.findUnique({
+            where: {
+              userId_courseId: {
+                userId: session.metadata.userId,
+                courseId: session.metadata.courseId,
+              },
+            },
+            select: {
+              id: true,
+              userId: true,
+              courseId: true,
+              finalPrice: true,
+              discountApplied: true,
+              couponId: true,
+            },
+          });
+        }
 
         if (enrollment) {
           const course = await prisma.course.findUnique({
