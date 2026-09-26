@@ -13,7 +13,6 @@ export default function RegisterPage() {
   const [lastName, setLastName] = useState('')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -26,11 +25,6 @@ export default function RegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
-
-    if (password !== confirmPassword) {
-      setError('Passwords do not match')
-      return
-    }
 
     setLoading(true)
 
@@ -132,16 +126,7 @@ export default function RegisterPage() {
             className="w-full px-3 py-2 border rounded bg-white dark:bg-gray-700"
           />
 
-          <input
-            type="password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            placeholder="Confirm password"
-            autoComplete="new-password"
-            required
-            minLength={8}
-            className="w-full px-3 py-2 border rounded bg-white dark:bg-gray-700"
-          />
+
 
           <button
             type="submit"
