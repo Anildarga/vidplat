@@ -73,7 +73,24 @@ export async function GET(
       }
     }
 
-    return NextResponse.json({ success: true, data: quiz });
+    // Never expose correct answers to students before they submit the quiz.
+    // Instructors/admins need the answer key for quiz management, so they receive
+    // the full question objects. Students receive only the fields required to take
+    // the quiz.
+    const responseQuiz = (isInstructor || isAdmin)
+      ? quiz
+      : {
+          id: quiz.id,
+          title: quiz.title,
+          description: quiz.description,
+          courseId: quiz.courseId,
+          passingScore: quiz.passingScore,
+          type: quiz.type,
+          createdAt: quiz.createdAt,
+          questions: quiz.questions.map(({ correctAnswer: _correctAnswer, ...question }) => question),
+        };
+
+    return NextResponse.json({ success: true, data: responseQuiz });
   } catch (error) {
     console.error('[quizzes/[quizId] GET]', error instanceof Error ? error.message : error);
     return NextResponse.json(
