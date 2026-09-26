@@ -144,7 +144,8 @@ export async function POST(req: NextRequest) {
           },
         });
 
-        if (enrollment) {
+        if (enrollment && enrollment.paymentStatus !== 'COMPLETED') {
+          // A failure event must never overwrite an already-confirmed payment.
           await prisma.enrollment.update({
             where: { id: enrollment.id },
             data: {
@@ -155,6 +156,9 @@ export async function POST(req: NextRequest) {
           await prisma.payment.updateMany({
             where: {
               stripePaymentId: paymentIntent.id,
+              status: {
+                not: 'COMPLETED',
+              },
             },
             data: {
               status: 'FAILED',
