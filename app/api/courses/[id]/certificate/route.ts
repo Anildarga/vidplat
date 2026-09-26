@@ -107,6 +107,13 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       },
     });
 
+    if (!enrollment) {
+      return NextResponse.json(
+        { success: false, error: 'Enrollment not found' },
+        { status: 404 }
+      );
+    }
+
     if (enrollment.paymentStatus !== 'COMPLETED') {
       return NextResponse.json(
         { success: false, error: 'Course access requires completed payment' },
