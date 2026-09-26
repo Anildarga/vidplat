@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
 
     const formData = await request.formData();
     const file = formData.get('file') as File | null;
-    const uploadType = formData.get('type') as string || 'auto'; // 'local' or 'cloudinary'
+    const uploadType = formData.get('type') as string || 'auto';
 
     if (!file) {
       return NextResponse.json(
@@ -75,6 +75,18 @@ export async function POST(request: NextRequest) {
         { status: 413 }
       );
     }
+
+    const cloudinaryConfigured =
+      !!process.env.CLOUDINARY_CLOUD_NAME &&
+      process.env.CLOUDINARY_CLOUD_NAME !== 'your_cloud_name';
+
+    if (process.env.NODE_ENV === 'production' && !cloudinaryConfigured) {
+      return NextResponse.json(
+        { success: false, error: 'Cloud storage is not configured' },
+        { status: 503 }
+      );
+    }
+
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
@@ -88,10 +100,9 @@ export async function POST(request: NextRequest) {
       height?: number;
     };
 
-    // Use Cloudinary for videos if configured, otherwise fallback to local
-    const useCloudinary = uploadType === 'cloudinary' || (isVideo && process.env.CLOUDINARY_CLOUD_NAME !== 'your_cloud_name');
-    
-    if (useCloudinary && process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_CLOUD_NAME !== 'your_cloud_name') {
+    const useCloudinary = cloudinaryConfigured && uploadType !== 'local';
+
+    if (useCloudinary) {
       try {
         // Upload to Cloudinary
         const folder = isVideo ? 'eduplat/videos' : 'eduplat/images';
