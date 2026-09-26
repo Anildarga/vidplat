@@ -304,6 +304,7 @@ export const authOptions: NextAuthOptions = {
           (user as { emailVerified?: Date | null }).emailVerified ?? null;
         token.onboardingCompleted =
           (user as { onboardingCompleted?: boolean }).onboardingCompleted ?? false;
+        token.isActive = true;
       }
 
       if (!token.id) {
@@ -326,6 +327,7 @@ export const authOptions: NextAuthOptions = {
 
       token.role = currentUser.role;
       token.emailVerified = currentUser.emailVerified;
+      token.isActive = currentUser.isActive;
       token.onboardingCompleted = currentUser.onboardingCompleted;
 
       return token;
