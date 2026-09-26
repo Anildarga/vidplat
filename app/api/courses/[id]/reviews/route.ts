@@ -157,15 +157,7 @@ export async function POST(
         rating,
         comment: comment || null,
       },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            image: true,
-          },
-        },
-      },
+      include: { user: { select: { name: true } } },
     });
 
     return NextResponse.json({
