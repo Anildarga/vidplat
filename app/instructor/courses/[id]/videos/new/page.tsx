@@ -15,7 +15,6 @@ export default function NewVideoPage() {
   const params = useParams();
   const courseId = params.id as string;
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const videoFileInputRef = useRef<HTMLInputElement>(null);
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -64,9 +63,6 @@ export default function NewVideoPage() {
 
     if (urlValue) {
       setVideoFile(null);
-      if (videoFileInputRef.current) {
-        videoFileInputRef.current.value = '';
-      }
     }
   };
 
@@ -115,7 +111,6 @@ export default function NewVideoPage() {
     if (videoFile) {
       // Upload video file first
       setVideoUploadProgress(true);
-      const formData = new FormData();
       try {
         const uploadData = await uploadToCloudinaryBrowser(videoFile, 'video');
         videoUrl = uploadData.url;
@@ -252,9 +247,7 @@ export default function NewVideoPage() {
                 onFileSelect={(file) => {
                   setVideoFile(file);
                   setUrl('');
-                  // Create preview URL for the video file
-                  const url = URL.createObjectURL(file);
-                  setVideoPreviewUrl(url);
+                  setDuration('');
                 }}
                 acceptedTypes="video/mp4,video/webm,video/ogg,video/quicktime,video/x-msvideo,video/mpeg"
                 maxSize={500}
