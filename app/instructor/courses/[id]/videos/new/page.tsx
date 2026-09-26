@@ -66,6 +66,31 @@ export default function NewVideoPage() {
     }
   };
 
+  // Automatically detect duration for direct video URLs when the source exposes metadata.
+  useEffect(() => {
+    if (!url || isYouTubeUrl(url) || videoFile || duration) return;
+
+    const probe = document.createElement('video');
+    probe.preload = 'metadata';
+    probe.onloadedmetadata = () => {
+      if (Number.isFinite(probe.duration) && probe.duration > 0) {
+        setDuration(String(Math.round(probe.duration)));
+      }
+      probe.removeAttribute('src');
+      probe.load();
+    };
+    probe.onerror = () => {
+      probe.removeAttribute('src');
+      probe.load();
+    };
+    probe.src = url;
+
+    return () => {
+      probe.removeAttribute('src');
+      probe.load();
+    };
+  }, [url, videoFile, duration]);
+
   // Thumbnail file selection handler
   const handleThumbnailFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || null;
