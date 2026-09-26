@@ -3,7 +3,6 @@
 import { useSession } from 'next-auth/react';
 import { useState, useEffect } from 'react';
 import CouponInput from './CouponInput';
-import { loadStripe } from '@stripe/stripe-js';
 
 interface Props {
   courseId: string;
@@ -97,33 +96,46 @@ export default function EnrollButton({ courseId }: Props) {
 
   const handleEnroll = async () => {
     setEnrolling(true);
-    try {
-      const body: any = {};
-      if (couponCode) {
-        body.couponCode = couponCode;
-      }
 
-      const res = await fetch(`/api/enrollments/${courseId}`, {
+    try {
+      const res = await fetch('/api/stripe/checkout', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(body),
+        body: JSON.stringify({
+          courseId,
+          ...(couponCode ? { couponCode } : {}),
+        }),
       });
+
       const data = await res.json();
-      if (data.success) {
-        setEnrolled(true);
-        // Show success message with discount if applied
-        if (data.discountApplied > 0) {
-          alert(`Successfully enrolled! Discount applied: $${data.discountApplied}`);
-        } else {
-          alert('Successfully enrolled!');
-        }
-      } else {
-        alert(data.error || 'Failed to enroll');
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Failed to start enrollment');
       }
+
+      // Free/fully discounted courses are enrolled immediately.
+      if (data.data?.freeEnrollment) {
+        setEnrolled(true);
+        alert(
+          data.data.message ||
+          (discountAmount > 0
+            ? `Successfully enrolled! Discount applied: ${discountAmount}`
+            : 'Successfully enrolled!')
+        );
+        return;
+      }
+
+      // Paid courses are completed by Stripe. Redirect to the hosted checkout.
+      if (data.data?.url) {
+        window.location.assign(data.data.url);
+        return;
+      }
+
+      throw new Error('Checkout session was not created');
     } catch (error) {
-      alert('An error occurred');
+      alert(error instanceof Error ? error.message : 'An error occurred');
     } finally {
       setEnrolling(false);
     }
