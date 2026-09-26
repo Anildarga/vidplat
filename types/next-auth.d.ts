@@ -17,5 +17,6 @@ declare module 'next-auth/jwt' {
     role: string;
     emailVerified: Date | null;
     onboardingCompleted: boolean;
+    isActive: boolean;
   }
 }
