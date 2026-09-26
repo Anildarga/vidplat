@@ -14,8 +14,11 @@ interface CoursesPageProps {
 export default async function CoursesPage({ searchParams }: CoursesPageProps) {
   const { search } = await searchParams;
 
-  // Build where clause - show ALL courses (no isPublished filter)
-  const where: any = {};
+  // Public catalog contains only author-published and admin-approved courses.
+  const where: any = {
+    isPublished: true,
+    adminApproved: true,
+  };
 
   // Add search filter if provided
   if (search) {
