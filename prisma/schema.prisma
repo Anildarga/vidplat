@@ -42,7 +42,7 @@ model User {
   firstName          String?
   lastName           String?
   name               String?
-  email              String?   @unique
+  email              String    @unique
   emailVerified      DateTime?
   image              String?
   username           String?   @unique
