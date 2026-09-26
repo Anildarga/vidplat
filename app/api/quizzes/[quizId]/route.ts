@@ -47,7 +47,7 @@ export async function GET(
     }
 
     // Check if user can access this quiz
-    const isInstructor = quiz.course.instructorId === session.user.id;
+    const isInstructor = session.user.role === 'INSTRUCTOR' && quiz.course.instructorId === session.user.id;
     const isAdmin = session.user.role === 'ADMIN';
     const enrollment = await prisma.enrollment.findUnique({
       where: {
