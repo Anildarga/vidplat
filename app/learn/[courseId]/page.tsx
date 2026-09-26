@@ -80,7 +80,12 @@ export default async function LearnPage({ params }: PageProps) {
   const isAdmin = session.user.role === 'ADMIN';
   const isInstructor = session.user.role === 'INSTRUCTOR' || isAdmin;
   const isOwner = course.instructorId === session.user.id;
-  const canAccess = isAdmin || isInstructor || isOwner || enrollment;
+  const hasCompletedEnrollment = enrollment?.paymentStatus === 'COMPLETED';
+  const canAccess =
+    isAdmin ||
+    isInstructor ||
+    isOwner ||
+    hasCompletedEnrollment;
 
   if (!canAccess) {
     redirect(`/courses/${courseId}?message=Please enroll to access this course`);
