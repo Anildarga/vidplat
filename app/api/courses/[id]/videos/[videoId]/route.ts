@@ -42,13 +42,27 @@ export async function GET(
       );
     }
 
+    const course = await prisma.course.findUnique({
+      where: { id: courseId },
+      select: { instructorId: true, isPublished: true, adminApproved: true },
+    });
+
+    if (!course) {
+      return NextResponse.json(
+        { success: false, error: 'Course not found' },
+        { status: 404 }
+      );
+    }
+
     const isAdmin = session?.user?.role === 'ADMIN';
-    const isOwner = session?.user?.id === (
-      await prisma.course.findUnique({
-        where: { id: courseId },
-        select: { instructorId: true },
-      })
-    )?.instructorId;
+    const isOwner = session?.user?.id === course.instructorId;
+
+    if (!isAdmin && !isOwner && (!course.isPublished || !course.adminApproved)) {
+      return NextResponse.json(
+        { success: false, error: 'Course is not available' },
+        { status: 404 }
+      );
+    }
 
     if (!isAdmin && !isOwner) {
       if (!session?.user?.id) {
