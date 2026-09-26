@@ -35,15 +35,49 @@ export default async function CourseDetailPage({
         orderBy: {
           order: 'asc',
         },
+        select: {
+          id: true,
+          title: true,
+          thumbnail: true,
+          duration: true,
+          order: true,
+        },
       },
-      quizzes: true,
+      quizzes: {
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          passingScore: true,
+          type: true,
+        },
+      },
+      courseNotes: {
+        orderBy: { order: 'asc' },
+        select: {
+          id: true,
+          title: true,
+          order: true,
+        },
+      },
+      documents: {
+        orderBy: { order: 'asc' },
+        select: {
+          id: true,
+          title: true,
+          fileName: true,
+          mimeType: true,
+          size: true,
+          order: true,
+        },
+      },
       _count: {
         select: {
           enrollments: true,
           videos: true,
         },
       },
-    },
+    }
   });
 
   if (!course) {
@@ -103,6 +137,7 @@ export default async function CourseDetailPage({
   }
 
   const canAccessVideos = isEnrolled || isAdmin || isOwner;
+  const canAccessCourseContent = canAccessVideos;
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
@@ -286,6 +321,54 @@ export default async function CourseDetailPage({
           </ul>
         )}
       </div>
+
+      {/* Notes Section */}
+      {courseWithDetails.courseNotes?.length > 0 && (
+        <div className="mt-8">
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Notes</h2>
+          <ul className="space-y-3">
+            {courseWithDetails.courseNotes.map((note: any) => (
+              <li key={note.id} className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow flex items-center gap-3">
+                {!canAccessCourseContent && <span className="text-gray-500">🔒</span>}
+                <span className="font-medium text-gray-900 dark:text-white">{note.title}</span>
+              </li>
+            ))}
+          </ul>
+          {!canAccessCourseContent && (
+            <p className="mt-2 text-sm text-gray-500">Enroll to read the course notes.</p>
+          )}
+        </div>
+      )}
+
+      {/* Documents Section */}
+      {courseWithDetails.documents?.length > 0 && (
+        <div className="mt-8">
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Documents</h2>
+          <ul className="space-y-3">
+            {courseWithDetails.documents.map((document: any) => (
+              <li key={document.id} className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3 min-w-0">
+                  {!canAccessCourseContent && <span className="text-gray-500">🔒</span>}
+                  <div className="min-w-0">
+                    <p className="font-medium text-gray-900 dark:text-white truncate">{document.title}</p>
+                    <p className="text-sm text-gray-500 truncate">{document.fileName}</p>
+                  </div>
+                </div>
+                {canAccessCourseContent ? (
+                  <a
+                    href={'/api/courses/' + courseWithDetails.id + '/documents/' + document.id + '/download'}
+                    className="px-3 py-2 border rounded-lg text-sm"
+                  >
+                    Open
+                  </a>
+                ) : (
+                  <span className="text-sm text-gray-500">Locked</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* Reviews Section */}
       <ReviewsSection courseId={courseWithDetails.id} />
