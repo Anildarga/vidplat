@@ -335,7 +335,7 @@ export default function EditVideoPage() {
   };
 
   const handleDelete = async () => {
-    if (!confirm('Are you sure you want to delete this video?')) {
+    if (!confirm('Move this video to Trash? You can restore it later.')) {
       return;
     }
 
