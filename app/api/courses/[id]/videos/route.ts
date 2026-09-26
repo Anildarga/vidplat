@@ -14,6 +14,34 @@ export async function GET(
     const userId = session?.user?.id;
     const userRole = session?.user?.role;
 
+    const isInstructorOrAdmin = userRole === 'INSTRUCTOR' || userRole === 'ADMIN';
+
+    if (!isInstructorOrAdmin) {
+      if (!userId) {
+        return NextResponse.json(
+          { success: false, error: 'Authentication required' },
+          { status: 401 }
+        );
+      }
+
+      const enrollment = await prisma.enrollment.findUnique({
+        where: {
+          userId_courseId: {
+            userId,
+            courseId: id,
+          },
+        },
+        select: { paymentStatus: true },
+      });
+
+      if (enrollment?.paymentStatus !== 'COMPLETED') {
+        return NextResponse.json(
+          { success: false, error: 'Course access requires completed payment' },
+          { status: 403 }
+        );
+      }
+    }
+
     // Fetch all videos for the course
     const videos = await prisma.video.findMany({
       where: { courseId: id },
@@ -21,9 +49,6 @@ export async function GET(
         order: 'asc',
       },
     });
-
-    // If user is instructor or admin, return all videos with isUnlocked = true
-    const isInstructorOrAdmin = userRole === 'INSTRUCTOR' || userRole === 'ADMIN';
 
     // Determine enrollment for the user in this course
     let enrollment = null;
