@@ -46,8 +46,15 @@ export default async function CourseDetailPage({
     },
   });
 
-  // Show all courses, even if not published
   if (!course) {
+    notFound();
+  }
+
+  const canManageBeforeApproval =
+    session?.user?.role === 'ADMIN' ||
+    session?.user?.id === course.instructorId;
+
+  if ((!course.isPublished || !course.adminApproved) && !canManageBeforeApproval) {
     notFound();
   }
 
