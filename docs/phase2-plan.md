@@ -25,9 +25,18 @@ The original Phase 2 document described an Express/PostgreSQL/JWT architecture t
 - Production uploads require Cloudinary; local filesystem fallback is development-only.
 - Uploads are restricted to Instructor/Admin users with bounded file sizes.
 - Admin user-management updates are allowlisted and validated.
-- Password-reset and verification endpoints avoid email-account enumeration.
-- OTP request history is retained long enough for rate limiting.
+- Username/password accounts no longer require email OTP verification.
+- Email verification and password-reset OTP APIs/UI are temporarily disabled.
+- OAuth sign-in still validates provider email trust.
+
 - Monetary inputs are normalized to two-decimal precision.
+- Every user can have a role-based identity ID: `stud########`, `inst########`, or `admin########`.
+- Admin user lookup is identity-ID based rather than a directory listing.
+- Course creation is draft-first with an Add Content menu for videos, notes, quizzes, and documents.
+- Instructor publishing requires one-time Admin approval before student visibility; approved courses can be edited without another approval.
+- Deleted courses and content are archived in Trash and can be restored by the deleting author or an Admin.
+- Video uploads use direct signed Cloudinary upload, with duration taken from uploaded-file metadata.
+- YouTube preview parsing supports watch, short, embed, live, and youtu.be URLs.
 - Free/paid course price state is validated consistently.
 - Quiz scoring honors configured question marks.
 - Captured cookies, headers, development logs, and generated certificate artifacts are not kept in the repository.
