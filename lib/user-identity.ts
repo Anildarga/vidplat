@@ -48,3 +48,16 @@ export async function ensureUserIdentityId(userId: string, role: IdentityRole): 
     throw new Error('Unable to assign user identity ID');
   }
 }
+
+export async function generateUniqueUsername(base: string): Promise<string> {
+  const sanitized = base.toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 20) || 'user';
+
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const suffix = randomInt(0, 10_000).toString().padStart(4, '0');
+    const username = sanitized.slice(0, Math.max(1, 20 - suffix.length - 1)) + '_' + suffix;
+    const existing = await prisma.user.findUnique({ where: { username }, select: { id: true } });
+    if (!existing) return username;
+  }
+
+  throw new Error('Unable to generate a unique username');
+}
