@@ -212,7 +212,7 @@ export default function EditQuizPage() {
   };
 
   const handleDeleteQuiz = async () => {
-    if (!confirm('Are you sure you want to delete this quiz? This action cannot be undone.')) return;
+    if (!confirm('Move this quiz to Trash? You can restore it later.')) return;
 
     setIsDeleting(true);
     setError(null);
