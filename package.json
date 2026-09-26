@@ -14,7 +14,8 @@
     "cloudinary:update": "node scripts/setup-cloudinary.js update",
     "cloudinary:delete": "node scripts/setup-cloudinary.js delete",
     "db:backfill-identities": "tsx scripts/backfill-identities.ts",
-    "db:seed": "tsx prisma/seed.ts"
+    "db:seed": "tsx prisma/seed.ts",
+    "db:backfill-course-approvals": "tsx scripts/backfill-course-approvals.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
