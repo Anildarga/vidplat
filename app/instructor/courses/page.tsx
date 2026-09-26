@@ -221,7 +221,7 @@ function DeleteButton({ courseId, onDelete }: { courseId: string; onDelete: () =
   const [error, setError] = useState<string | null>(null);
 
   const handleDelete = async () => {
-    if (!confirm('Are you sure you want to delete this course? This action cannot be undone.')) {
+    if (!confirm('Move this course to Trash? You can restore it later.')) {
       return;
     }
 
