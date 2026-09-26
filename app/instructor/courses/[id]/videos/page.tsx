@@ -166,17 +166,6 @@ export default function VideosPage() {
     }
   };
 
-  // Check if video URL is a YouTube link
-  const isYouTubeVideo = (url: string) => {
-    return url.includes('youtube.com') || url.includes('youtu.be');
-  };
-
-  // Get embed URL for YouTube
-  const getYouTubeEmbedUrl = (url: string) => {
-    const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
-    return match ? `https://www.youtube.com/embed/${match[1]}` : null;
-  };
-
   const openVideoModal = (video: Video) => {
     setPlayingVideo(video);
     setShowModal(true);
@@ -364,7 +353,7 @@ export default function VideosPage() {
               </button>
             </div>
             <div className="p-4 flex items-center justify-center bg-black">
-              {isYouTubeVideo(playingVideo.url) && getYouTubeEmbedUrl(playingVideo.url) ? (
+              {isYouTubeUrl(playingVideo.url) && getYouTubeEmbedUrl(playingVideo.url) ? (
                 <iframe
                   src={getYouTubeEmbedUrl(playingVideo.url)!}
                   className="w-full aspect-video max-h-[70vh]"
