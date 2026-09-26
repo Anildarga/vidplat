@@ -4,7 +4,9 @@ import { useSession } from 'next-auth/react';
 import { useRouter, useParams } from 'next/navigation';
 import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
-import { getYouTubeEmbedUrl, isValidVideoUrl } from '@/lib/utils';
+import { isValidVideoUrl } from '@/lib/utils';
+import { getYouTubeEmbedUrl, isYouTubeUrl } from '@/lib/video-utils';
+import { uploadToCloudinaryBrowser } from '@/lib/cloudinary-browser';
 
 interface VideoData {
   id: string;
@@ -230,23 +232,12 @@ export default function EditVideoPage() {
     if (videoFile) {
       // Upload video file first
       setVideoUploadProgress(true);
-      const formData = new FormData();
-      formData.append('file', videoFile);
-      formData.append('type', 'cloudinary');
-
       try {
-        const uploadRes = await fetch('/api/upload', {
-          method: 'POST',
-          body: formData,
-        });
-
-        const uploadData = await uploadRes.json();
-
-        if (!uploadRes.ok) {
-          throw new Error(uploadData.error || 'Failed to upload video');
+        const uploadData = await uploadToCloudinaryBrowser(videoFile, 'video');
+        videoUrlValue = uploadData.url;
+        if (uploadData.duration && uploadData.duration > 0) {
+          setDuration(String(Math.round(uploadData.duration)));
         }
-
-        videoUrlValue = uploadData.data.url;
       } catch (err: any) {
         setError('Video upload failed: ' + err.message);
         setVideoUploadProgress(false);
@@ -268,22 +259,8 @@ export default function EditVideoPage() {
     // Handle thumbnail
     let thumbnailValue: string | null = null;
     if (thumbnailFile) {
-      const formData = new FormData();
-      formData.append('file', thumbnailFile);
-      formData.append('type', 'cloudinary');
-
-      const uploadRes = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      });
-
-      const uploadData = await uploadRes.json();
-
-      if (!uploadRes.ok) {
-        throw new Error(uploadData.error || 'Failed to upload thumbnail');
-      }
-
-      thumbnailValue = uploadData.data.url;
+      const uploadData = await uploadToCloudinaryBrowser(thumbnailFile, 'image');
+      thumbnailValue = uploadData.url;
     } else if (thumbnailUrl.trim()) {
       thumbnailValue = thumbnailUrl.trim();
     } else if (video?.thumbnail) {
@@ -479,7 +456,7 @@ export default function EditVideoPage() {
                 <div className="mt-3">
                   <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Preview:</p>
                   <div className="aspect-video w-full max-w-lg rounded overflow-hidden bg-black">
-                    {url && (url.includes('youtube.com') || url.includes('youtu.be')) ? (
+                    {url && (isYouTubeUrl(url)) ? (
                       <iframe
                         src={videoPreviewUrl}
                         className="w-full h-full"
