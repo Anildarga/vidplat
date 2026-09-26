@@ -112,14 +112,14 @@ export async function POST(req: NextRequest) {
     }
 
     // Validate discount value
-    if (discountType === 'PERCENTAGE' && (discountValue < 0 || discountValue > 100)) {
+    if (discountType === 'PERCENTAGE' && (discountValueNumber < 0 || discountValueNumber > 100)) {
       return NextResponse.json(
         { success: false, error: 'Percentage discount must be between 0 and 100' },
         { status: 400 }
       );
     }
 
-    if (discountType === 'FIXED_AMOUNT' && discountValue < 0) {
+    if (discountType === 'FIXED_AMOUNT' && discountValueNumber < 0) {
       return NextResponse.json(
         { success: false, error: 'Fixed discount must be positive' },
         { status: 400 }
@@ -164,7 +164,7 @@ export async function POST(req: NextRequest) {
         code,
         description,
         discountType,
-        discountValue,
+        discountValue: discountValueNumber,
         maxUses,
         courseId,
         instructorId: session.user.id,
