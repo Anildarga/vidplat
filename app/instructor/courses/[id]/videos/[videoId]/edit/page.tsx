@@ -90,7 +90,7 @@ export default function EditVideoPage() {
         setUnlockType(data.data.unlockType || 'IMMEDIATE');
         setUnlockDays(data.data.unlockDays ? String(data.data.unlockDays) : '');
         setUnlockDate(data.data.unlockDate ? new Date(data.data.unlockDate).toISOString().slice(0, 16) : '');
-        setVideoPreviewUrl(data.data.url);
+        setVideoPreviewUrl(getYouTubeEmbedUrl(data.data.url) || data.data.url);
         setThumbnailPreviewUrl(data.data.thumbnail || null);
       } catch (err: any) {
         setError(err.message);
