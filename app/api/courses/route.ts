@@ -14,6 +14,7 @@ export async function GET(req: NextRequest) {
 
     const where: Prisma.CourseWhereInput = {
       isPublished: true,
+      adminApproved: true,
     };
 
     if (search) {
@@ -108,6 +109,8 @@ export async function POST(req: NextRequest) {
         thumbnail: thumbnail?.trim(),
         instructorId: session.user.id,
         isPublished: false,
+        adminApproved: session.user.role === 'ADMIN',
+        approvedAt: session.user.role === 'ADMIN' ? new Date() : null,
         price: priceValue,
         currency: currency?.trim() || 'USD',
         isFree: priceValue === 0,
