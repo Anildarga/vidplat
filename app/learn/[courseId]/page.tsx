@@ -78,8 +78,8 @@ export default async function LearnPage({ params }: PageProps) {
 
   // Check enrollment or admin/instructor access
   const isAdmin = session.user.role === 'ADMIN';
-  const isInstructor = session.user.role === 'INSTRUCTOR' || isAdmin;
   const isOwner = course.instructorId === session.user.id;
+  const isInstructor = session.user.role === 'INSTRUCTOR' && isOwner;
   const hasCompletedEnrollment = enrollment?.paymentStatus === 'COMPLETED';
   const canAccess =
     isAdmin ||
