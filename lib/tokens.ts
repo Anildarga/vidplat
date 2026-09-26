@@ -21,9 +21,13 @@ export async function createVerificationToken(
   const token = generateOtp();
   const expires = new Date(Date.now() + OTP_EXPIRY_MS);
 
-  // Delete any existing token for this email first
+  // Keep recent request records so API-side rate limiting can count
+  // repeated requests. Expired records are cleaned up opportunistically.
   await prisma.verificationToken.deleteMany({
-    where: { identifier: email }
+    where: {
+      identifier: email,
+      expires: { lt: new Date() },
+    },
   });
 
   // Create new token
@@ -44,8 +48,13 @@ export async function createPasswordResetToken(
   const token = generateOtp();
   const expires = new Date(Date.now() + OTP_EXPIRY_MS);
 
+  // Keep recent request records so the reset endpoint can enforce
+  // the per-email hourly request limit.
   await prisma.passwordResetToken.deleteMany({
-    where: { email }
+    where: {
+      email,
+      expires: { lt: new Date() },
+    },
   });
 
   await prisma.passwordResetToken.create({
@@ -66,6 +75,7 @@ export async function verifyAndConsumeVerificationToken(
   try {
     const record = await prisma.verificationToken.findFirst({
       where: { identifier: email },
+      orderBy: { createdAt: 'desc' },
     });
 
     if (!record) {
@@ -120,6 +130,7 @@ export async function checkPasswordResetCode(
   try {
     const record = await prisma.passwordResetToken.findFirst({
       where: { email },
+      orderBy: { createdAt: 'desc' },
     });
 
     if (!record) {
