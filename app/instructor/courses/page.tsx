@@ -13,6 +13,8 @@ interface Course {
   description: string | null;
   thumbnail: string | null;
   isPublished: boolean;
+  adminApproved: boolean;
+  approvedAt: string | null;
   createdAt: string;
   videos: any[];
   quizzes: any[];
@@ -147,13 +149,13 @@ export default function InstructorCoursesPage() {
                 {/* Status Badge */}
                 <div className="absolute top-2 right-2">
                   {course.isPublished ? (
-                    <span className="bg-green-500 text-white text-xs px-2 py-1 rounded">
-                      Published
-                    </span>
+                    course.adminApproved ? (
+                      <span className="bg-green-500 text-white text-xs px-2 py-1 rounded">Live</span>
+                    ) : (
+                      <span className="bg-yellow-500 text-white text-xs px-2 py-1 rounded">Awaiting Approval</span>
+                    )
                   ) : (
-                    <span className="bg-gray-500 text-white text-xs px-2 py-1 rounded">
-                      Draft
-                    </span>
+                    <span className="bg-gray-500 text-white text-xs px-2 py-1 rounded">Draft</span>
                   )}
                 </div>
               </div>
@@ -167,7 +169,7 @@ export default function InstructorCoursesPage() {
                 {/* Summary stat */}
                 <div className="text-sm text-gray-500 dark:text-gray-400 mb-3">
                   {course._count.enrollments} students · {course._count.videos} videos ·{' '}
-                  {course.isPublished ? 'Published' : 'Draft'}
+                  {!course.isPublished ? 'Draft' : course.adminApproved ? 'Live' : 'Awaiting Admin Approval'}
                 </div>
 
                 <div className="flex gap-2 flex-wrap">
