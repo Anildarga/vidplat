@@ -19,6 +19,7 @@ export async function GET(
       select: {
         instructorId: true,
         isPublished: true,
+        adminApproved: true,
       },
     });
 
@@ -36,6 +37,13 @@ export async function GET(
     let enrollment = null;
 
     if (!isCourseManager) {
+      if (!course.isPublished || !course.adminApproved) {
+        return NextResponse.json(
+          { success: false, error: 'Course is not available' },
+          { status: 404 }
+        );
+      }
+
       if (!userId) {
         return NextResponse.json(
           { success: false, error: 'Authentication required' },
