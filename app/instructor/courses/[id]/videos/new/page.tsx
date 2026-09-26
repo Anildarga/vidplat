@@ -5,6 +5,8 @@ import { useRouter, useParams } from 'next/navigation';
 import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { isValidVideoUrl } from '@/lib/utils';
+import { getYouTubeEmbedUrl, isYouTubeUrl } from '@/lib/video-utils';
+import { uploadToCloudinaryBrowser } from '@/lib/cloudinary-browser';
 import DragDropUpload from '@/components/upload/DragDropUpload';
 
 export default function NewVideoPage() {
@@ -13,7 +15,6 @@ export default function NewVideoPage() {
   const params = useParams();
   const courseId = params.id as string;
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const videoFileInputRef = useRef<HTMLInputElement>(null);
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -29,7 +30,6 @@ export default function NewVideoPage() {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
 
   // Redirect if not authenticated or not instructor/admin
   useEffect(() => {
@@ -51,13 +51,8 @@ export default function NewVideoPage() {
     setVideoFile(file);
 
     if (file) {
-      // Clear URL field when file is selected
       setUrl('');
-      // Create preview URL for the video file
-      const url = URL.createObjectURL(file);
-      setVideoPreviewUrl(url);
-    } else {
-      setVideoPreviewUrl(null);
+      setDuration('');
     }
   };
 
@@ -65,20 +60,12 @@ export default function NewVideoPage() {
   const handleUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const urlValue = e.target.value;
     setUrl(urlValue);
+
     if (urlValue) {
-      // Clear file selection when URL is entered
       setVideoFile(null);
       if (videoFileInputRef.current) {
         videoFileInputRef.current.value = '';
       }
-      // Show preview for YouTube links
-      if (urlValue.includes('youtube.com') || urlValue.includes('youtu.be')) {
-        setVideoPreviewUrl(`https://www.youtube.com/embed/${urlValue.split('v=')[1]?.split('&')[0] || ''}`);
-      } else {
-        setVideoPreviewUrl(null);
-      }
-    } else {
-      setVideoPreviewUrl(null);
     }
   };
 
@@ -128,34 +115,17 @@ export default function NewVideoPage() {
       // Upload video file first
       setVideoUploadProgress(true);
       const formData = new FormData();
-      formData.append('file', videoFile);
-      formData.append('type', 'cloudinary'); // Force Cloudinary upload for videos
-
       try {
-        const uploadRes = await fetch('/api/upload', {
-          method: 'POST',
-          body: formData,
-        });
+        const uploadData = await uploadToCloudinaryBrowser(videoFile, 'video');
+        videoUrl = uploadData.url;
 
-        const uploadData = await uploadRes.json();
-
-        if (!uploadRes.ok) {
-          throw new Error(uploadData.error || 'Failed to upload video');
+        if (uploadData.duration && uploadData.duration > 0) {
+          videoDuration = Math.round(uploadData.duration);
+          setDuration(String(videoDuration));
         }
 
-        videoUrl = uploadData.data.url;
-        
-        // Use auto-generated thumbnail from Cloudinary if available
-        if (uploadData.data.thumbnail_url) {
-          thumbnailValue = uploadData.data.thumbnail_url;
-          setThumbnailUrl(uploadData.data.thumbnail_url);
-          setPreviewUrl(uploadData.data.thumbnail_url);
-        }
-        
-        // Use video duration from Cloudinary metadata if available
-        if (uploadData.data.duration && !duration) {
-          videoDuration = Math.round(uploadData.data.duration);
-          setDuration(videoDuration.toString());
+        if (uploadData.public_id) {
+          thumbnailValue = uploadData.url.replace('/video/upload/', '/video/upload/so_1,e_thumb/');
         }
       } catch (err: any) {
         setError('Video upload failed: ' + err.message);
@@ -179,21 +149,8 @@ export default function NewVideoPage() {
     // Upload thumbnail if file is selected (only if not already set by Cloudinary)
     if (!thumbnailValue && thumbnailFile) {
       const formData = new FormData();
-      formData.append('file', thumbnailFile);
-      formData.append('type', 'cloudinary');
-
-      const uploadRes = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      });
-
-      const uploadData = await uploadRes.json();
-
-      if (!uploadRes.ok) {
-        throw new Error(uploadData.error || 'Failed to upload thumbnail');
-      }
-
-      thumbnailValue = uploadData.data.url;
+      const uploadData = await uploadToCloudinaryBrowser(thumbnailFile, 'image');
+      thumbnailValue = uploadData.url;
     } else if (!thumbnailValue && thumbnailUrl.trim()) {
       thumbnailValue = thumbnailUrl.trim();
     }
@@ -329,21 +286,17 @@ export default function NewVideoPage() {
                 className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="https://www.youtube.com/watch?v=... or https://example.com/video.mp4"
               />
-              {videoPreviewUrl && (
+              {isYouTubeUrl(url) && getYouTubeEmbedUrl(url) && (
                 <div className="mt-4">
                   <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Preview:</p>
                   <div className="aspect-video w-full max-w-2xl rounded-lg overflow-hidden bg-black shadow-lg">
-                    {url.includes('youtube.com') || url.includes('youtu.be') ? (
-                      <iframe
-                        src={videoPreviewUrl}
-                        className="w-full h-full"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                        allowFullScreen
-                        title="Video preview"
-                      />
-                    ) : (
-                      <video src={videoPreviewUrl} controls className="w-full h-full" />
-                    )}
+                    <iframe
+                      src={getYouTubeEmbedUrl(url)!}
+                      className="w-full h-full"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                      title="YouTube preview"
+                    />
                   </div>
                 </div>
               )}
@@ -413,20 +366,12 @@ export default function NewVideoPage() {
             )}
           </div>
 
-          {/* Duration */}
-          <div>
-            <label htmlFor="duration" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Duration (seconds, optional)
-            </label>
-            <input
-              type="number"
-              id="duration"
-              value={duration}
-              onChange={(e) => setDuration(e.target.value)}
-              min="0"
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="e.g. 300 for a 5 minute video"
-            />
+          {/* Duration is detected automatically for uploaded video files. */}
+          <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Video Duration</p>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              {duration ? 'Detected duration: ' + duration + ' seconds' : 'Duration will be detected automatically after upload.'}
+            </p>
           </div>
 
           {/* Content Scheduling */}
