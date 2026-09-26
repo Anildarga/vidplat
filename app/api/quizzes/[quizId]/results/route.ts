@@ -90,6 +90,26 @@ export async function GET(
       });
     }
 
+    // Students must have completed payment/enrollment to access quiz results.
+    if (!isInstructor && !isAdmin) {
+      const enrollment = await prisma.enrollment.findUnique({
+        where: {
+          userId_courseId: {
+            userId: session.user.id,
+            courseId: quiz.courseId,
+          },
+        },
+        select: { paymentStatus: true },
+      });
+
+      if (enrollment?.paymentStatus !== 'COMPLETED') {
+        return NextResponse.json(
+          { success: false, error: 'Course access requires completed payment' },
+          { status: 403 }
+        );
+      }
+    }
+
     // For students, return their own attempt with detailed breakdown
     const userAttempt = await prisma.quizAttempt.findFirst({
       where: {
