@@ -122,9 +122,9 @@ export async function POST(
       },
     });
 
-    if (!enrollment) {
+    if (enrollment?.paymentStatus !== 'COMPLETED') {
       return NextResponse.json(
-        { success: false, error: 'You must be enrolled in the course to leave a review' },
+        { success: false, error: 'You must have completed enrollment to leave a review' },
         { status: 403 }
       );
     }
