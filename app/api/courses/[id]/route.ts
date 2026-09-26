@@ -67,7 +67,7 @@ export async function GET(
       }
     }
 
-    const isOwner = session?.user?.id === course.instructorId;
+    const isOwner = session?.user?.role === 'INSTRUCTOR' && session?.user?.id === course.instructorId;
     const isAdmin = session?.user?.role === 'ADMIN';
     const isInstructor = session?.user?.role === 'INSTRUCTOR' && isOwner;
 
