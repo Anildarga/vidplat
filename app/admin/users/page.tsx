@@ -1,203 +1,162 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useSession } from 'next-auth/react'
-
-export const dynamic = 'force-dynamic'
 import { useRouter } from 'next/navigation'
 import type { UserRole } from '@/lib/types'
 
 interface AdminUser {
   id: string
-  email: string
-  name: string
+  identityId: string | null
+  firstName: string | null
+  lastName: string | null
+  name: string | null
+  username: string | null
+  email: string | null
   role: UserRole
   isActive: boolean
+  isEmailVerified: boolean
   createdAt: string
 }
 
 export default function AdminUsersPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
-  const [users, setUsers] = useState<AdminUser[]>([])
-  const [loading, setLoading] = useState(true)
+  const [identityId, setIdentityId] = useState('')
+  const [user, setUser] = useState<AdminUser | null>(null)
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [message, setMessage] = useState<string | null>(null)
 
-  const isAdmin = session?.user?.role === 'ADMIN'
+  if (status === 'loading') {
+    return <div className="p-8 text-center">Loading...</div>
+  }
 
-  useEffect(() => {
-    if (status === 'unauthenticated' || (status === 'authenticated' && !isAdmin)) {
-      router.push('/')
+  if (!session || session.user.role !== 'ADMIN') {
+    router.replace('/')
+    return null
+  }
+
+  const searchUser = async () => {
+    setError(null)
+    setMessage(null)
+    setUser(null)
+
+    const normalized = identityId.trim().toLowerCase()
+    if (!/^(stud|inst|admin)\d{8}$/.test(normalized)) {
+      setError('Enter a valid ID such as stud12345678, inst12345678 or admin12345678')
       return
     }
 
-    if (isAdmin) {
-      fetchUsers()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, isAdmin])
-
-  const fetchUsers = async () => {
+    setLoading(true)
     try {
-      setLoading(true)
-      const baseUrl = typeof window !== 'undefined' ? window.location.origin : ''
-      const res = await fetch(`${baseUrl}/api/users`)
-      if (!res.ok) {
-        if (res.status === 403) {
-          router.push('/')
-          return
-        }
-        throw new Error('Failed to fetch users')
-      }
-      const result = await res.json()
-      setUsers(result.data)
-      setError(null)
+      const res = await fetch('/api/users?identityId=' + encodeURIComponent(normalized), { cache: 'no-store' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'User not found')
+      setUser(data.data)
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to load users'
-      setError(message)
+      setError(err instanceof Error ? err.message : 'User lookup failed')
     } finally {
       setLoading(false)
     }
   }
 
-  const handleToggleActive = async (id: string, currentIsActive: boolean) => {
+  const updateUser = async (patch: Record<string, unknown>) => {
+    if (!user) return
+    setError(null)
+    setMessage(null)
+
     try {
-      const baseUrl = typeof window !== 'undefined' ? window.location.origin : ''
-      const res = await fetch(`${baseUrl}/api/users/${id}`, {
+      const res = await fetch('/api/users/' + user.id, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isActive: !currentIsActive }),
+        body: JSON.stringify(patch),
       })
-      if (!res.ok) throw new Error('Failed to update user')
-      setUsers(users.map(u => u.id === id ? { ...u, isActive: !u.isActive } : u))
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to update user')
+      setUser(data.data)
+      setMessage('User updated successfully')
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to update user'
-      alert('Failed to update user: ' + message)
+      setError(err instanceof Error ? err.message : 'Failed to update user')
     }
   }
 
-  const handleChangeRole = async (id: string, newRole: UserRole) => {
+  const deleteUser = async () => {
+    if (!user || !confirm('Move this user out of the active platform account? This cannot be undone here.')) return
+
+    setLoading(true)
     try {
-      const baseUrl = typeof window !== 'undefined' ? window.location.origin : ''
-      const res = await fetch(`${baseUrl}/api/users/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ role: newRole }),
-      })
-      if (!res.ok) throw new Error('Failed to change role')
-      const result = await res.json()
-      setUsers(users.map(u => u.id === id ? { ...u, role: result.data.role } : u))
+      const res = await fetch('/api/users/' + user.id, { method: 'DELETE' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to delete user')
+      setUser(null)
+      setMessage('User deleted')
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to change role'
-      alert('Failed to change role: ' + message)
+      setError(err instanceof Error ? err.message : 'Failed to delete user')
+    } finally {
+      setLoading(false)
     }
-  }
-
-  const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this user?')) return
-    try {
-      const baseUrl = typeof window !== 'undefined' ? window.location.origin : ''
-      const res = await fetch(`${baseUrl}/api/users/${id}`, { method: 'DELETE' })
-      if (!res.ok) throw new Error('Failed to delete user')
-      setUsers(users.filter(u => u.id !== id))
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to delete user'
-      alert('Failed to delete user: ' + message)
-    }
-  }
-
-  if (status === 'loading' || loading) {
-    return (
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="text-center text-gray-900 dark:text-white">Loading...</div>
-      </div>
-    )
-  }
-
-  if (!isAdmin) {
-    return null
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-6">User Management</h1>
+    <div className="max-w-4xl mx-auto px-4 py-8">
+      <div className="mb-6">
+        <button onClick={() => router.push('/admin')} className="text-blue-600 hover:underline">← Back to Admin</button>
+      </div>
 
-      {error && (
-        <div className="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 p-4 rounded mb-6">
-          {error}
-          <button onClick={fetchUsers} className="ml-2 underline">Retry</button>
-        </div>
-      )}
+      <h1 className="text-3xl font-bold text-gray-900 dark:text-white">User Lookup</h1>
+      <p className="mt-2 text-gray-600 dark:text-gray-300">
+        Search by the user's unique identity ID. The directory is not listed publicly.
+      </p>
 
-      {users.length === 0 && !loading && (
-        <p className="text-gray-600 dark:text-gray-300">No users found.</p>
-      )}
+      <div className="mt-6 flex gap-3">
+        <input
+          value={identityId}
+          onChange={(e) => setIdentityId(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && searchUser()}
+          placeholder="stud12345678 / inst12345678 / admin12345678"
+          className="flex-1 px-4 py-3 border rounded-lg bg-white dark:bg-gray-800"
+        />
+        <button onClick={searchUser} disabled={loading} className="px-5 py-3 bg-blue-600 text-white rounded-lg disabled:opacity-50">
+          {loading ? 'Searching...' : 'Search'}
+        </button>
+      </div>
 
-      {users.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 shadow overflow-hidden rounded-lg">
-          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-            <thead className="bg-gray-50 dark:bg-gray-700">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                  Name
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                  Email
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                  Role
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-              {users.map(user => (
-                <tr key={user.id}>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900 dark:text-white">{user.name}</div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400">{user.id.slice(0, 8)}...</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900 dark:text-white">{user.email}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <select
-                      value={user.role}
-                      onChange={(e) => handleChangeRole(user.id, e.target.value as UserRole)}
-                      disabled={user.id === session?.user?.id}
-                      className="text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded"
-                    >
-                      <option value="STUDENT">Student</option>
-                      <option value="INSTRUCTOR">Instructor</option>
-                      <option value="ADMIN">Admin</option>
-                    </select>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <button
-                      onClick={() => handleToggleActive(user.id, user.isActive)}
-                      className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${user.isActive ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'}`}
-                    >
-                      {user.isActive ? 'Active' : 'Inactive'}
-                    </button>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    <button
-                      onClick={() => handleDelete(user.id)}
-                      disabled={user.id === session?.user?.id}
-                      className="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      Delete
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {error && <div className="mt-4 p-3 bg-red-50 text-red-700 rounded">{error}</div>}
+      {message && <div className="mt-4 p-3 bg-green-50 text-green-700 rounded">{message}</div>}
+
+      {user && (
+        <div className="mt-8 bg-white dark:bg-gray-800 rounded-lg shadow p-6 space-y-4">
+          <div className="flex justify-between items-start">
+            <div>
+              <p className="text-xs text-gray-500">Identity ID</p>
+              <p className="text-xl font-mono font-bold">{user.identityId}</p>
+            </div>
+            <span className="px-3 py-1 rounded bg-gray-100 dark:bg-gray-700">{user.role}</span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <div><span className="text-gray-500">Name</span><p>{user.name || [user.firstName, user.lastName].filter(Boolean).join(' ') || '—'}</p></div>
+            <div><span className="text-gray-500">Username</span><p>{user.username || '—'}</p></div>
+            <div><span className="text-gray-500">Email</span><p>{user.email || '—'}</p></div>
+            <div><span className="text-gray-500">Status</span><p>{user.isActive ? 'Active' : 'Inactive'}</p></div>
+            <div><span className="text-gray-500">Created</span><p>{new Date(user.createdAt).toLocaleString()}</p></div>
+            <div><span className="text-gray-500">ID / internal record</span><p className="font-mono">{user.id}</p></div>
+          </div>
+
+          <div className="flex flex-wrap gap-3 pt-4 border-t">
+            <select value={user.role} onChange={(e) => updateUser({ role: e.target.value })} className="px-3 py-2 border rounded bg-white dark:bg-gray-700">
+              <option value="STUDENT">Student</option>
+              <option value="INSTRUCTOR">Instructor</option>
+              <option value="ADMIN">Admin</option>
+            </select>
+            <button onClick={() => updateUser({ isActive: !user.isActive })} className="px-4 py-2 border rounded">
+              {user.isActive ? 'Deactivate' : 'Activate'}
+            </button>
+            <button onClick={deleteUser} className="px-4 py-2 bg-red-600 text-white rounded">
+              Delete
+            </button>
+          </div>
         </div>
       )}
     </div>
