@@ -32,6 +32,10 @@ export async function uploadToCloudinaryBrowser(file: File, kind: BrowserUploadK
   });
 
   const signatureData = await readJsonResponse(signatureResponse);
+  if (kind === 'document' && file.size > 50 * 1024 * 1024) {
+    throw new Error('Documents must be 50 MB or smaller');
+  }
+
   if (!signatureResponse.ok || !signatureData.success) {
     throw new Error(typeof signatureData.error === 'string' ? signatureData.error : 'Unable to prepare Cloudinary upload');
   }
