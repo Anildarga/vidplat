@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 
-// GET /api/courses/[id]/videos - List all videos for a course (public)
+// GET /api/courses/[id]/videos - List videos for an authorized course user
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -14,9 +14,28 @@ export async function GET(
     const userId = session?.user?.id;
     const userRole = session?.user?.role;
 
-    const isInstructorOrAdmin = userRole === 'INSTRUCTOR' || userRole === 'ADMIN';
+    const course = await prisma.course.findUnique({
+      where: { id },
+      select: {
+        instructorId: true,
+        isPublished: true,
+      },
+    });
 
-    if (!isInstructorOrAdmin) {
+    if (!course) {
+      return NextResponse.json(
+        { success: false, error: 'Course not found' },
+        { status: 404 }
+      );
+    }
+
+    const isAdmin = userRole === 'ADMIN';
+    const isCourseOwner = !!userId && course.instructorId === userId;
+    const isCourseManager = isAdmin || isCourseOwner;
+
+    let enrollment = null;
+
+    if (!isCourseManager) {
       if (!userId) {
         return NextResponse.json(
           { success: false, error: 'Authentication required' },
@@ -24,14 +43,13 @@ export async function GET(
         );
       }
 
-      const enrollment = await prisma.enrollment.findUnique({
+      enrollment = await prisma.enrollment.findUnique({
         where: {
           userId_courseId: {
             userId,
             courseId: id,
           },
         },
-        select: { paymentStatus: true },
       });
 
       if (enrollment?.paymentStatus !== 'COMPLETED') {
@@ -42,7 +60,6 @@ export async function GET(
       }
     }
 
-    // Fetch all videos for the course
     const videos = await prisma.video.findMany({
       where: { courseId: id },
       orderBy: {
@@ -50,28 +67,14 @@ export async function GET(
       },
     });
 
-    // Determine enrollment for the user in this course
-    let enrollment = null;
-    if (userId && !isInstructorOrAdmin) {
-      enrollment = await prisma.enrollment.findUnique({
-        where: {
-          userId_courseId: {
-            userId,
-            courseId: id,
-          },
-        },
-      });
-    }
-
     const now = new Date();
-    const enrichedVideos = videos.map(video => {
+    const enrichedVideos = videos.map((video) => {
       let isUnlocked = false;
       let unlockReason = '';
 
-      // If instructor/admin, everything is unlocked
-      if (isInstructorOrAdmin) {
+      if (isCourseManager) {
         isUnlocked = true;
-        unlockReason = 'instructor';
+        unlockReason = isAdmin ? 'admin' : 'instructor';
       } else {
         switch (video.unlockType) {
           case 'IMMEDIATE':
@@ -83,7 +86,9 @@ export async function GET(
               const unlockDate = new Date(enrollment.enrolledAt);
               unlockDate.setDate(unlockDate.getDate() + video.unlockDays);
               isUnlocked = now >= unlockDate;
-              unlockReason = isUnlocked ? 'days_after_enrollment_passed' : 'days_after_enrollment_pending';
+              unlockReason = isUnlocked
+                ? 'days_after_enrollment_passed'
+                : 'days_after_enrollment_pending';
             } else {
               isUnlocked = false;
               unlockReason = 'not_enrolled_or_no_days';
@@ -92,17 +97,17 @@ export async function GET(
           case 'SPECIFIC_DATE':
             if (video.unlockDate) {
               isUnlocked = now >= new Date(video.unlockDate);
-              unlockReason = isUnlocked ? 'specific_date_passed' : 'specific_date_pending';
+              unlockReason = isUnlocked
+                ? 'specific_date_passed'
+                : 'specific_date_pending';
             } else {
-              // No date set, treat as unlocked? Default to locked for safety.
               isUnlocked = false;
               unlockReason = 'no_date_set';
             }
             break;
           default:
-            // Default to immediate if unknown
-            isUnlocked = true;
-            unlockReason = 'default';
+            isUnlocked = false;
+            unlockReason = 'invalid_unlock_type';
         }
       }
 
@@ -148,7 +153,6 @@ export async function POST(
     const { id: courseId } = await params;
     const { title, description, url, thumbnail, duration, unlockType, unlockDays, unlockDate } = await req.json();
 
-    // Validate required fields
     if (!title || typeof title !== 'string' || title.trim() === '') {
       return NextResponse.json(
         { success: false, error: 'Title is required' },
@@ -163,7 +167,6 @@ export async function POST(
       );
     }
 
-    // Fetch the course to check ownership
     const course = await prisma.course.findUnique({
       where: { id: courseId },
     });
@@ -175,7 +178,6 @@ export async function POST(
       );
     }
 
-    // Check ownership: instructor must own the course or be ADMIN
     const isOwner = course.instructorId === session.user.id;
     const isAdmin = session.user.role === 'ADMIN';
 
@@ -186,16 +188,15 @@ export async function POST(
       );
     }
 
-    // Get current video count to set order
     const videoCount = await prisma.video.count({
       where: { courseId },
     });
 
-    // Validate unlockType
     const validUnlockTypes = ['IMMEDIATE', 'DAYS_AFTER_ENROLLMENT', 'SPECIFIC_DATE'];
-    const finalUnlockType = unlockType && validUnlockTypes.includes(unlockType) ? unlockType : 'IMMEDIATE';
-    
-    // Validate unlockDays
+    const finalUnlockType = unlockType && validUnlockTypes.includes(unlockType)
+      ? unlockType
+      : 'IMMEDIATE';
+
     let finalUnlockDays = null;
     if (unlockDays !== undefined && unlockDays !== null) {
       const days = Number(unlockDays);
@@ -203,8 +204,7 @@ export async function POST(
         finalUnlockDays = days;
       }
     }
-    
-    // Validate unlockDate
+
     let finalUnlockDate = null;
     if (unlockDate) {
       const date = new Date(unlockDate);
