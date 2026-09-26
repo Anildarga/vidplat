@@ -48,6 +48,7 @@ export async function POST(req: NextRequest) {
         lastName: String(lastName).trim(),
         name,
         username,
+        email: username + '@local.eduplat.invalid',
         identityId,
         password: hashedPassword,
         role: 'STUDENT',
