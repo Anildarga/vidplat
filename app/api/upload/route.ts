@@ -100,7 +100,9 @@ export async function POST(request: NextRequest) {
       height?: number;
     };
 
-    const useCloudinary = cloudinaryConfigured && uploadType !== 'local';
+    const useCloudinary = cloudinaryConfigured && (
+      process.env.NODE_ENV === 'production' || uploadType !== 'local'
+    );
 
     if (useCloudinary) {
       try {
