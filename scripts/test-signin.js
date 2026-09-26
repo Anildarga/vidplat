@@ -3,8 +3,14 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 async function testSignIn() {
-  const email = 'test.1775595509136@example.com';
-  const password = 'password123';
+  const email = process.env.TEST_USER_EMAIL;
+  const password = process.env.TEST_USER_PASSWORD;
+
+  if (!email || !password) {
+    console.error('Set TEST_USER_EMAIL and TEST_USER_PASSWORD before running this script.');
+    process.exitCode = 1;
+    return;
+  }
 
   console.log('🔐 Testing sign-in with verified user...\n');
   console.log('Email:', email);
