@@ -47,13 +47,12 @@ export async function POST(req: NextRequest) {
 
     // Allow max 3 requests per hour
     if (recentTokens.length >= 3) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Too many reset requests. Please try again later.',
-        },
-        { status: 429 }
-      );
+      // Keep the response indistinguishable from a normal request so the
+      // endpoint cannot be used to enumerate registered email addresses.
+      return NextResponse.json({
+        success: true,
+        message: 'If an account exists with this email, a password reset code will be sent',
+      });
     }
 
     // Generate and save reset token using the tokens library
