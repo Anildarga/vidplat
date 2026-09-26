@@ -55,7 +55,7 @@ export async function POST(
     const isInstructor = quiz.course.instructorId === session.user.id;
     const isAdmin = session.user.role === 'ADMIN';
 
-    if (!enrollment && !isInstructor && !isAdmin) {
+    if (enrollment?.paymentStatus !== 'COMPLETED' && !isInstructor && !isAdmin) {
       return NextResponse.json(
         { success: false, error: 'Forbidden: You must be enrolled in this course to take this quiz' },
         { status: 403 }
