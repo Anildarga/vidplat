@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 import { CourseWithDetails } from '@/types/course';
+import { normalizeMoney } from '@/lib/money';
 
 // GET /api/courses/[id] - Get single course (published for public, all for authorized instructor/admin)
 export async function GET(
@@ -206,8 +207,8 @@ export async function PATCH(
     }
 
     if (price !== undefined) {
-      const priceValue = parseFloat(price);
-      if (priceValue < 0) {
+      const priceValue = normalizeMoney(price);
+      if (priceValue === null) {
         return NextResponse.json(
           { success: false, error: 'Price cannot be negative' },
           { status: 400 }
