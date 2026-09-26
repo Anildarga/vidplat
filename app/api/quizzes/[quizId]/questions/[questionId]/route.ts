@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
+import { archiveTrash } from '@/lib/trash';
 
 // Helper function to check if user can manage quiz
 async function canManageQuiz(quizId: string, userId: string, userRole: string): Promise<boolean> {
@@ -159,7 +160,14 @@ export async function DELETE(
 
     const deletedOrder = question.order;
 
-    // Delete the question
+    await archiveTrash({
+      entityType: 'QUESTION',
+      entityId: question.id,
+      courseId: undefined,
+      deletedById: session.user.id,
+      payload: question,
+    });
+
     await prisma.question.delete({
       where: { id: questionId },
     });
