@@ -13,7 +13,8 @@ const ALLOWED_MIME_TYPES = [
   // Videos
   'video/mp4', 'video/webm', 'video/ogg', 'video/quicktime', 'video/x-msvideo', 'video/mpeg'
 ];
-const MAX_FILE_SIZE = 500 * 1024 * 1024; // 500MB for videos
+const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_VIDEO_SIZE = 500 * 1024 * 1024; // 500MB for videos
 
 export async function POST(request: NextRequest) {
   try {
@@ -23,6 +24,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { success: false, error: 'Authentication required' },
         { status: 401 }
+      );
+    }
+
+    if (session.user.role !== 'INSTRUCTOR' && session.user.role !== 'ADMIN') {
+      return NextResponse.json(
+        { success: false, error: 'Forbidden: Only instructors or admins can upload files' },
+        { status: 403 }
       );
     }
 
@@ -45,15 +53,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate file size
-    if (file.size > MAX_FILE_SIZE) {
-      return NextResponse.json(
-        { success: false, error: 'File too large. Maximum 500MB.' },
-        { status: 400 }
-      );
+    const isVideo = file.type.startsWith('video/');
+    const maxFileSize = isVideo ? MAX_VIDEO_SIZE : MAX_IMAGE_SIZE;
+
+    // Reject oversized requests before reading the full file into memory when
+    // the client supplies a Content-Length header.
+    const contentLength = request.headers.get('content-length');
+    if (contentLength) {
+      const requestSize = Number(contentLength);
+      if (Number.isFinite(requestSize) && requestSize > maxFileSize + 1024 * 1024) {
+        return NextResponse.json(
+          { success: false, error: isVideo ? 'Video file too large. Maximum 500MB.' : 'Image file too large. Maximum 10MB.' },
+          { status: 413 }
+        );
+      }
     }
 
-    const isVideo = file.type.startsWith('video/');
+    if (file.size > maxFileSize) {
+      return NextResponse.json(
+        { success: false, error: isVideo ? 'Video file too large. Maximum 500MB.' : 'Image file too large. Maximum 10MB.' },
+        { status: 413 }
+      );
+    }
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
@@ -91,7 +112,13 @@ export async function POST(request: NextRequest) {
         };
       } catch (cloudinaryError) {
         console.error('Cloudinary upload failed:', cloudinaryError);
-        // Fall back to local storage
+        if (process.env.NODE_ENV === 'production') {
+          return NextResponse.json(
+            { success: false, error: 'Cloud storage upload failed. Please try again later.' },
+            { status: 502 }
+          );
+        }
+
         const localResult = await uploadToLocal(file, buffer);
         return NextResponse.json({
           success: true,
