@@ -186,8 +186,8 @@ export default async function LearnPage({ params }: PageProps) {
   let mainFailed = false;
   if (mainQuiz && quizAttempts[mainQuiz.id]) {
     mainAttempt = quizAttempts[mainQuiz.id];
-    const totalScore = mainQuiz._count.questions;
-    const percentage = Math.round((mainAttempt.score / totalScore) * 100);
+    const totalScore = mainAttempt.totalScore;
+    const percentage = totalScore > 0 ? Math.round((mainAttempt.score / totalScore) * 100) : 0;
     const passingScore = (mainQuiz.passingScore as number) ?? 60;
     mainPassed = percentage >= passingScore;
     mainFailed = !mainPassed;
@@ -198,8 +198,8 @@ export default async function LearnPage({ params }: PageProps) {
   let supplementalPassed = false;
   if (supplementalQuiz && quizAttempts[supplementalQuiz.id]) {
     supplementalAttempt = quizAttempts[supplementalQuiz.id];
-    const totalScore = supplementalQuiz._count.questions;
-    const percentage = Math.round((supplementalAttempt.score / totalScore) * 100);
+    const totalScore = supplementalAttempt.totalScore;
+    const percentage = totalScore > 0 ? Math.round((supplementalAttempt.score / totalScore) * 100) : 0;
     const passingScore = (supplementalQuiz.passingScore as number) ?? 60;
     supplementalPassed = percentage >= passingScore;
   }
