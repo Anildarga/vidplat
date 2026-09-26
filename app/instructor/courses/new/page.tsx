@@ -3,6 +3,7 @@
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useRef } from 'react';
+import { uploadToCloudinaryBrowser } from '@/lib/cloudinary-browser';
 import Link from 'next/link';
 import { getThumbnailUrl } from '@/lib/image-upload';
 
@@ -63,7 +64,7 @@ export default function NewCoursePage() {
     }
   };
 
-  const handleSubmit = async (isPublished: boolean) => {
+  const handleSubmit = async () => {
     if (!title.trim()) {
       setError('Title is required');
       return;
@@ -77,22 +78,8 @@ export default function NewCoursePage() {
 
       // If there's a file, upload it first
       if (thumbnailFile) {
-        const formData = new FormData();
-        formData.append('file', thumbnailFile);
-        formData.append('type', 'cloudinary');
-
-        const uploadRes = await fetch('/api/upload', {
-          method: 'POST',
-          body: formData,
-        });
-
-        const uploadData = await uploadRes.json();
-
-        if (!uploadRes.ok) {
-          throw new Error(uploadData.error || 'Failed to upload thumbnail');
-        }
-
-        thumbnailValue = uploadData.data.url;
+        const uploadData = await uploadToCloudinaryBrowser(thumbnailFile, 'image');
+        thumbnailValue = uploadData.url;
       } else if (thumbnailUrl.trim()) {
         thumbnailValue = thumbnailUrl.trim();
       }
@@ -256,22 +243,14 @@ export default function NewCoursePage() {
         </div>
 
         {/* Buttons */}
-        <div className="mt-8 flex gap-4">
+        <div className="mt-8 flex">
           <button
             type="button"
-            onClick={() => handleSubmit(false)}
+            onClick={handleSubmit}
             disabled={isSubmitting}
-            className="flex-1 px-6 py-3 bg-yellow-600 text-white rounded hover:bg-yellow-700 disabled:opacity-50"
+            className="flex-1 px-6 py-3 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
           >
-            {isSubmitting ? 'Saving...' : 'Save as Draft'}
-          </button>
-          <button
-            type="button"
-            onClick={() => handleSubmit(true)}
-            disabled={isSubmitting}
-            className="flex-1 px-6 py-3 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
-          >
-            {isSubmitting ? 'Publishing...' : 'Publish Now'}
+            {isSubmitting ? 'Creating...' : 'Create Course'}
           </button>
         </div>
       </div>
