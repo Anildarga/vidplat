@@ -19,7 +19,7 @@ async function canManageQuiz(quizId: string, userId: string, userRole: string): 
 
   if (!quiz) return false;
 
-  const isOwner = quiz.course.instructorId === userId;
+  const isOwner = userRole === 'INSTRUCTOR' && quiz.course.instructorId === userId;
   const isAdmin = userRole === 'ADMIN';
 
   return isOwner || isAdmin;
