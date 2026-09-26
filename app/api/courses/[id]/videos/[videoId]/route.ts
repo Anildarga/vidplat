@@ -21,23 +21,88 @@ async function canManageVideo(
   return isOwner || isAdmin;
 }
 
-// GET /api/courses/[id]/videos/[videoId] - Get single video (public)
+// GET /api/courses/[id]/videos/[videoId] - Get single authorized video
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string; videoId: string }> }
 ) {
   try {
-    const { videoId } = await params;
+    const session = await getServerSession(authOptions);
+    const { id: courseId, videoId } = await params;
 
     const video = await prisma.video.findUnique({
       where: { id: videoId },
     });
 
-    if (!video) {
+    if (!video || video.courseId !== courseId) {
       return NextResponse.json(
         { success: false, error: 'Video not found' },
         { status: 404 }
       );
+    }
+
+    const isAdmin = session?.user?.role === 'ADMIN';
+    const isOwner = session?.user?.id === (
+      await prisma.course.findUnique({
+        where: { id: courseId },
+        select: { instructorId: true },
+      })
+    )?.instructorId;
+
+    if (!isAdmin && !isOwner) {
+      if (!session?.user?.id) {
+        return NextResponse.json(
+          { success: false, error: 'Authentication required' },
+          { status: 401 }
+        );
+      }
+
+      const enrollment = await prisma.enrollment.findUnique({
+        where: {
+          userId_courseId: {
+            userId: session.user.id,
+            courseId,
+          },
+        },
+        select: {
+          paymentStatus: true,
+          enrolledAt: true,
+        },
+      });
+
+      if (enrollment?.paymentStatus !== 'COMPLETED') {
+        return NextResponse.json(
+          { success: false, error: 'Course access requires completed payment' },
+          { status: 403 }
+        );
+      }
+
+      const now = new Date();
+      let isUnlocked = false;
+
+      switch (video.unlockType) {
+        case 'IMMEDIATE':
+          isUnlocked = true;
+          break;
+        case 'DAYS_AFTER_ENROLLMENT': {
+          if (video.unlockDays !== null) {
+            const unlockDate = new Date(enrollment.enrolledAt);
+            unlockDate.setDate(unlockDate.getDate() + video.unlockDays);
+            isUnlocked = now >= unlockDate;
+          }
+          break;
+        }
+        case 'SPECIFIC_DATE':
+          isUnlocked = !!video.unlockDate && now >= new Date(video.unlockDate);
+          break;
+      }
+
+      if (!isUnlocked) {
+        return NextResponse.json(
+          { success: false, error: 'Video is not unlocked yet' },
+          { status: 403 }
+        );
+      }
     }
 
     return NextResponse.json({ success: true, data: video });
