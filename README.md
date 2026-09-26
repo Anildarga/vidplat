@@ -1,6 +1,6 @@
 # EduPlat - Educational Platform
 
-A modern, full-featured educational platform built with Next.js 14, MongoDB, and Prisma. This platform supports course creation, video management, quizzes, user authentication, and role-based access control (student, instructor, admin).
+A modern, full-featured educational platform built with Next.js 16, MongoDB, and Prisma. This platform supports course creation, video management, quizzes, user authentication, and role-based access control (student, instructor, admin).
 
 ## Features
 
@@ -13,7 +13,7 @@ A modern, full-featured educational platform built with Next.js 14, MongoDB, and
 - **Certificate Generation**: Generate certificates upon course completion
 - **Responsive UI**: Built with Tailwind CSS, fully responsive
 - **File Uploads**: Support for course thumbnails and video thumbnails
-- **Email Notifications**: Password reset, email verification via Resend
+- **Email Notifications**: Password reset, email verification, and welcome emails via Brevo in production (Ethereal/Nodemailer in development)
 
 ## Tech Stack
 
@@ -21,12 +21,12 @@ A modern, full-featured educational platform built with Next.js 14, MongoDB, and
 - **Backend**: Next.js API Routes, NextAuth.js
 - **Database**: MongoDB (via Prisma ORM)
 - **Authentication**: NextAuth.js (JWT sessions)
-- **Email**: Resend
+- **Email**: Brevo in production, Ethereal/Nodemailer in development
 - **Deployment**: Vercel (recommended)
 
 ## Prerequisites
 
-- Node.js 18+ and npm/yarn/pnpm/bun
+- Node.js 20+ and npm/yarn/pnpm/bun
 - MongoDB Atlas account (or local MongoDB)
 - Google OAuth credentials (for Google login)
 - GitHub OAuth credentials (for GitHub login)
@@ -55,9 +55,7 @@ bun install
 
 ### 3. Set up environment variables
 
-The project already contains a `.env` file with placeholder values. You need to replace these placeholders with your own credentials.
-
-Open the `.env` file and update the following variables:
+Create a local `.env` file (do not commit secrets) and configure the variables required by your environment.
 
 ```env
 # Database
@@ -88,6 +86,10 @@ NEXTAUTH_URL="http://localhost:3000"
 BREVO_API_KEY="your-brevo-api-key"
 BREVO_FROM_EMAIL="noreply@eduplat.com"
 BREVO_FROM_NAME="Eduplat"
+
+# Stripe
+STRIPE_SECRET_KEY="your-stripe-secret-key"
+STRIPE_WEBHOOK_SECRET="your-stripe-webhook-secret"
 ```
 
 **Important**: Replace all placeholder values with your actual credentials. The existing `.env` file already contains sample values that you must update.
@@ -137,9 +139,9 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-## Test Credentials
+## Development test data
 
-After seeding, you can log in with the following accounts:
+The seed script creates development users and content for local testing. Do not reuse development passwords in production.
 
 | Role       | Email                   | Password    |
 |------------|-------------------------|-------------|
@@ -173,7 +175,7 @@ eduplat/
 - `npm run build` – Build for production
 - `npm run start` – Start production server
 - `npm run lint` – Run ESLint
-- `node prisma/seed.js` – Seed database with test data (run after database setup)
+- `npx tsx prisma/seed.ts` – Seed database with development test data
 
 ## Deployment
 
