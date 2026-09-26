@@ -1,6 +1,19 @@
 import nodemailer from 'nodemailer';
 
-let transporter: any = null;
+type EmailTransporter =
+  | { brevo: true }
+  | nodemailer.Transporter;
+
+let transporter: EmailTransporter | null = null;
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 
 type BrevoSendResult = { success: boolean; error?: string };
 
@@ -58,18 +71,22 @@ export async function sendViaBrevo(params: {
  * Uses Ethereal Email for development testing (no API keys needed)
  * Uses Brevo for production if an API key is provided
  */
-async function getTransporter() {
+async function getTransporter(): Promise<EmailTransporter> {
   if (transporter) return transporter;
 
-  // Production: Use Brevo if API key is provided
-  if (process.env.BREVO_API_KEY && process.env.NODE_ENV === 'production') {
-    // Mark as a Brevo-backed transporter; `.brevo` flag lets callers
-    // distinguish this from the Ethereal/nodemailer fallback below.
+  // Production must use a configured transactional email provider. Never
+  // silently fall back to a development mailbox in production.
+  if (process.env.NODE_ENV === 'production') {
+    if (!process.env.BREVO_API_KEY) {
+      throw new Error('BREVO_API_KEY is required in production');
+    }
+
+
     transporter = { brevo: true };
     return transporter;
   }
 
-  // Development: Use Ethereal Email (free, no signup needed)
+  // Development/test: Use Ethereal Email
   try {
     const testAccount = await nodemailer.createTestAccount();
     transporter = nodemailer.createTransport({
@@ -103,7 +120,7 @@ export async function sendVerificationEmail(
       const result = await sendViaBrevo({
         to: email,
         subject: `${code} is your Eduplat verification code`,
-        html: getVerificationEmailHtml(code, name),
+        html: getVerificationEmailHtml(code, escapeHtml(name)),
       });
 
       if (!result.success) {
