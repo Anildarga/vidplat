@@ -90,16 +90,16 @@ export async function POST(
       );
     }
 
-    // Calculate score
+    // Calculate weighted score using each question's configured marks.
     let score = 0;
-    const totalScore = quiz.questions.length;
+    const totalScore = quiz.questions.reduce((sum, question) => sum + Math.max(1, question.marks ?? 1), 0);
     const answerDetails = quiz.questions.map((question) => {
       const userAnswer = answers.find((a: { questionId: string }) => a.questionId === question.id);
       const selectedOption = userAnswer?.selectedOption ?? -1;
       const isCorrect = selectedOption === question.correctAnswer;
 
       if (isCorrect) {
-        score++;
+        score += Math.max(1, question.marks ?? 1);
       }
 
       return {
