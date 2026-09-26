@@ -15,6 +15,7 @@ export default function NewVideoPage() {
   const params = useParams();
   const courseId = params.id as string;
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoFileInputRef = useRef<HTMLInputElement>(null);
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
