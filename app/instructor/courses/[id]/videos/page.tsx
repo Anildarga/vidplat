@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { formatDuration } from '@/lib/utils';
+import { getYouTubeEmbedUrl, isYouTubeUrl } from '@/lib/video-utils';
 
 interface Video {
   id: string;
