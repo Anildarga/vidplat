@@ -14,22 +14,20 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { role } = await req.json();
+    const body = await req.json().catch(() => ({}));
+    const requestedRole = body?.role;
 
-    if (!role || !['STUDENT', 'INSTRUCTOR'].includes(role)) {
+    // Onboarding must never grant a privileged role. Keep STUDENT as the only
+    // self-service role; instructors/admins require an existing trusted role.
+    if (requestedRole !== undefined && requestedRole !== null && requestedRole !== '' && requestedRole !== 'STUDENT') {
       return NextResponse.json(
-        { success: false, error: 'Invalid role. Must be STUDENT or INSTRUCTOR' },
-        { status: 400 }
+        { success: false, error: 'Privileged roles require administrative approval' },
+        { status: 403 }
       );
     }
 
-    // Update user role and mark onboarding as completed
-    const user = await prisma.user.update({
+    const existingUser = await prisma.user.findUnique({
       where: { id: session.user.id },
-      data: {
-        role,
-        onboardingCompleted: true,
-      },
       select: {
         id: true,
         email: true,
@@ -38,6 +36,29 @@ export async function POST(req: NextRequest) {
         onboardingCompleted: true,
       },
     });
+
+    if (!existingUser) {
+      return NextResponse.json(
+        { success: false, error: 'User not found' },
+        { status: 404 }
+      );
+    }
+
+    const user = existingUser.onboardingCompleted
+      ? existingUser
+      : await prisma.user.update({
+          where: { id: existingUser.id },
+          data: {
+            onboardingCompleted: true,
+          },
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            role: true,
+            onboardingCompleted: true,
+          },
+        });
 
     return NextResponse.json({
       success: true,
