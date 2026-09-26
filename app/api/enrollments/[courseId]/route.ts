@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
+import { createCheckoutSession } from '@/lib/stripe';
 
 // GET /api/enrollments/[courseId] - Check if current user is enrolled
 export async function GET(
@@ -248,8 +249,21 @@ export async function POST(
         { status: 201 }
       );
     } else {
-      // For paid courses, redirect to Stripe checkout
-      // Create pending enrollment first
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+
+      const checkoutSession = await createCheckoutSession({
+        courseId,
+        courseTitle: course.title,
+        amount: finalPrice,
+        currency: course.currency || 'USD',
+        userId: session.user.id,
+        userEmail: session.user.email || undefined,
+        successUrl: frontendUrl + '/courses/' + courseId + '?payment=success',
+        cancelUrl: frontendUrl + '/courses/' + courseId + '?payment=cancelled',
+        couponCode: couponCode || undefined,
+      });
+
+      // Persist the Stripe session ID so the webhook can reconcile payment.
       const enrollment = await prisma.enrollment.create({
         data: {
           userId: session.user.id,
@@ -258,15 +272,17 @@ export async function POST(
           discountApplied,
           finalPrice,
           paymentStatus: 'PENDING',
+          stripeSessionId: checkoutSession.id,
         },
       });
 
-      // Return checkout URL to frontend
       return NextResponse.json(
         {
           success: true,
           data: {
             enrollmentId: enrollment.id,
+            sessionId: checkoutSession.id,
+            url: checkoutSession.url,
             requiresPayment: true,
             finalPrice,
             discountApplied,
