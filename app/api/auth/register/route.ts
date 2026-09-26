@@ -38,6 +38,15 @@ if (!EMAIL_REGEX.test(email)) {
       );
     }
 
+    // Public registration can only create student accounts. Instructor and
+    // admin roles must be assigned through a trusted administrative flow.
+    if (role !== undefined && role !== null && role !== '' && role !== 'STUDENT') {
+      return NextResponse.json(
+        { success: false, error: 'Privileged roles require administrative approval' },
+        { status: 403 }
+      );
+    }
+
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) {
       return NextResponse.json(
@@ -53,7 +62,7 @@ if (!EMAIL_REGEX.test(email)) {
         name,
         email,
         password: hashedPassword,
-        role: role === 'INSTRUCTOR' ? 'INSTRUCTOR' : 'STUDENT',
+        role: 'STUDENT',
         onboardingCompleted: true, // Credentials users complete onboarding via role selection in form
         emailVerified: null, // They need to verify email
         acceptedTermsAt: new Date(),
